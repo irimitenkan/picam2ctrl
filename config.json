@@ -1,0 +1,67 @@
+{
+  "LogLevel":"INFO",
+  "storepath": "/home/pi/picam2",
+  
+  "camera": { 
+  "index":0,
+  "hflip":1,
+  "vflip":1,
+  "motion":false,
+  "sensitivity": 10,
+  "tuning":"/usr/share/libcamera/ipa/raspberrypi/imx708.json"
+  },
+
+  "timestamp": { 
+   "enabled":true,
+   "format": "%A %d.%b %Y - %X",
+   "color" : "[255, 255, 0]",
+   "origin" : "[0, 45]",
+   "font" : "FONT_HERSHEY_TRIPLEX",
+   "fscale" : 2,
+   "thickness" : 2
+  },
+  
+  "image": {
+	"prefix":"snap",
+	"fmt": "jpg",
+	"size": "[4056, 3040]",
+	"snapshots":1,
+	"snapshots_t":10
+  },
+  
+  "video": {
+	"prefix": "videosnap",
+	"fmt": "mp4",
+	"bitrate": 1000000,
+	"size" : "[ 1920, 1080]",
+	"quality" : "HIGH",
+	"duration" : 30,
+	"audio":true,
+
+    "streaming": {
+	  "udp_addr": "192.168.188.8",
+	  "udp_port": 10001,
+	  "http_port": 8010,
+	  "http_index":"www/index.html"
+	}
+  },
+
+    "MQTTBroker":{ 
+	"host":"192.168.188.8",
+	"port": 8883,
+	"username":"irimi",
+	"password":"brokerPassWD",
+	"insecure":true,
+	"connection_retries":3,
+	"clientkeyfile":"",
+	"clientcertfile":""
+  },
+  
+  "SSHClient":{ 
+  	"enabled":true,
+  	"server": "lenox",
+  	"user" : "irimi",
+  	"dest_path" : "/opt/homeassistant/config/tmp"
+  }
+}
+
