@@ -1,0 +1,10 @@
+[Unit]
+Description=picam2ctrl MQTT client
+Documentation=TODO set link
+After=network.target
+[Service]
+WorkingDirectory=%h/picam2ctrl
+ExecStart=python3 -u picam2ctrl.py
+Restart=always
+[Install]
+WantedBy=default.target
