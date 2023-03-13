@@ -35,11 +35,11 @@ First steps see [Picamera2 installation](https://github.com/raspberrypi/picamera
 
 
 OpenCV python-bindings are required:
-
-    ```
-    apt-get install --no-install-recommends python3-opencv
-    ```
-
+	
+  ```
+  apt-get install --no-install-recommends python3-opencv
+  ```
+		
 # Configuration
 
 Example config.json
@@ -114,60 +114,59 @@ Example config.json
   }
 
   ```
-
+	
 
 
 # running
 - to start from terminal
 	
-    ```
-    cd picam2ctrl
-    python3 picam2ctrl.py
-    ```
+  ```
+  cd picam2ctrl
+  python3 picam2ctrl.py
+  ```
 	
 - to stop it &  started from terminal
-
-    ```
-    enter CTRL-C
-    ```
-
-
+	
+  ```
+  enter CTRL-C
+  ```
+	
 - to enable at startup and start service:
 	
-    ```
-    loginctl enable-linger
-    systemctl --user enable --now ~/picam2ctrl/picam2ctrl.service
-    ```
+  ```
+  loginctl enable-linger
+  systemctl --user enable --now ~/picam2ctrl/picam2ctrl.service
+  ```
 	
 - to disable running service at startup and stop it:
 	
-    ```
-    systemctl --user disable --now picam2ctrl
-    ```
+  ```
+  systemctl --user disable --now picam2ctrl
+  ```
 	
 - to stop the service again
 	
-    ```
-    systemctl --user stop picam2ctrl
-    ```
+  ```
+  systemctl --user stop picam2ctrl
+  ```
 	
 - to start the service
 	
-    ```
-    systemctl --user start picam2ctrl
-    ```
+  ```
+  systemctl --user start picam2ctrl
+  ```
 	
 - check the status of the service
 	
-    ```
-    systemctl --user status picam2ctrl
-    ```
+  ```
+  systemctl --user status picam2ctrl
+  ```
 	
 - check the picam2ctrl specific service logs
 	
-    ```
-    journalctl --user-unit picam2ctrl
-    ```
+  ```
+  journalctl --user-unit picam2ctrl
+  ```
 	
 
 # Integration
@@ -251,24 +250,22 @@ by HASS discovery function via configured MQTT broker.
 configuration.yaml examples for showing camera output in [Home Assistant](https://www.home-assistant.io/):
 
 ## UDP Stream
-
 	
-    ```
-    camera:
-      - platform: ffmpeg
-        name: picamera2
-        input: 'udp://@:10001'
-    ```
+  ```
+  camera:
+    - platform: ffmpeg
+      name: picamera2
+      input: 'udp://@:10001'
+  ```
 	
 ## picture snapshots
-
 	
-    ```
-    camera:
-      - platform: local_file
-        name: picamera2
-        file_path: /config/tmp/latest/latest1.jpg
-    ```
+  ```
+  camera:
+    - platform: local_file
+      name: picamera2
+      file_path: /config/tmp/latest/latest1.jpg
+  ```
 	
 ## HTTPServer / MJPEG Stream
 
@@ -277,9 +274,9 @@ configuration.yaml examples for showing camera output in [Home Assistant](https:
   * add integration
   * from the list, search and select “MJPEG IP Camera”
   * in MPEG-URL field enter
-
-    ```
-    http://< YOUR_RASPI_ADDRESS >:< CONFIGURED_HTTP_PORT>/stream.mjpg
-    ```
-
+	
+  ```
+  http://< YOUR_RASPI_ADDRESS >:< CONFIGURED_HTTP_PORT>/stream.mjpg
+  ```
+	
 
