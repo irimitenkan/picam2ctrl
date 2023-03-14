@@ -10,6 +10,8 @@ import logging
 import json
 import socket
 import ssl
+import signal
+
 import paho.mqtt.client as mqtt
 
 from enum import Enum
@@ -137,6 +139,9 @@ class PiCam2Client (mqtt.Client):
         self._child = None
         self.manufacturer="unknown"
         self.swversion="x.x"
+
+        signal.signal(signal.SIGINT, self.daemon_kill)
+        signal.signal(signal.SIGTERM, self.daemon_kill)
                 
         info = getCameraInfo()
         logging.debug(str(info))
@@ -155,6 +160,11 @@ class PiCam2Client (mqtt.Client):
                         
         if self.model.startswith("imx") or self.model.startswith("ov"):
             self.manufacturer="Raspberry Pi"   
+
+    def daemon_kill(self, *args):
+        self.client_down()
+        logging.info(f"{MQTT_CLIENT_ID} MQTT daemon Goodbye!")
+        exit(0)
 
     """
     on_connect when MQTT CleanSession=False (default) conn_ack will be send from broker
