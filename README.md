@@ -25,7 +25,6 @@ MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://ww
 * simple HTTP MJPEG streaming server
 * UDP video streaming
 * motion/occupancy detection by camera
-		
 * timestamp support
 * support of secure copy latest picture- / video-files to SSH server 
 
@@ -34,21 +33,21 @@ MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://ww
 Raspberry Pi OS bullseye version is required and camera legacy mode must be disabled in raspi-config.
 On headless Raspberry Pi OS lite you have to update from *libcamera-apps-lite* to full version *libcamera-apps*. 
 No gui but OpenCV python bindings and paho-mqtt package are required:
-	
+
   ```
   sudo apt-get install -y --no-install-recommends libcamera-apps python3-picamera2 python3-opencv python3-paho-mqtt git
   ```
-	
+
 finally clone the picam2ctrl repository:
 
-	
+
   ```
   git clone https://github.com/irimitenkan/picam2ctrl.git
   ```
-	
+
 
 For Picamera2 with GUI support see [Picamera2 installation](https://github.com/raspberrypi/picamera2#installation )
-		
+
 # Configuration
 
 Example config.json
@@ -154,60 +153,58 @@ but setup up public key authentication is required:
 - to start from terminal
 
   ```
-
 options:
   --version            show program's version number and exit
   -h, --help           show this help message and exit
   -c FILE, --cfg=FILE  set config file default: ./config.json
 
-	
   cd picam2ctrl
   python3 picam2ctrl.py
   ```
-	
+
 - to stop it & started from terminal
-	
+
   ```
   enter CTRL-C
   ```
-	
+
 - to enable at startup and start service:
-	
+
   ```
   loginctl enable-linger
   systemctl --user enable --now ~/picam2ctrl/picam2ctrl.service
   ```
-	
+
 - to disable running service at startup and stop it:
-	
+
   ```
   systemctl --user disable --now picam2ctrl
   ```
-	
+
 - to stop the service again
-	
+
   ```
   systemctl --user stop picam2ctrl
   ```
-	
+
 - to start the service
-	
+
   ```
   systemctl --user start picam2ctrl
   ```
-	
+
 - check the status of the service
-	
+
   ```
   systemctl --user status picam2ctrl
   ```
-	
+
 - check the picam2ctrl specific service logs
-	
+
   ```
   journalctl --user-unit picam2ctrl
   ```
-	
+
 
 # Integration
 
@@ -224,7 +221,6 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.Snapshot:
 
-
   This is a switch to enable/disable a picture snapshot function.
   * when [image.snapshots](# Configuration) is set to 0, picam2ctrl takes picture every [image.snapshots_t](# Configuration) seconds in an endless loop, since there is no switch off request
   * when count is set to x>0,  picam2ctrl takes x pictures every .. s  and stops.
@@ -234,7 +230,6 @@ by HASS discovery function via configured MQTT broker.
   * when [timestamp](#Configuration) is enabled the latest taken picture(s) will be copied via secure shell to configured path @SSH server
 
 - picam2ctrl.\< HOSTNAME \>.Video:
-
 
   This is a switch to enable/disable a video snapshot function.
   * when count is set to x>0,  picam2ctrl takes x pictures every .. s  and stops.
@@ -246,7 +241,6 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.HttpStream:
 
-
   This is a switch to enable/disable a simple HTTP Server with MJPEG stream.
   * when [Motion](#Motion) is disabled the MJPEG stream starts immediately
   * when [Motion](#Motion)  is enabled, the MJEP stream starts after motion detection
@@ -254,7 +248,6 @@ by HASS discovery function via configured MQTT broker.
 
 
 - picam2ctrl.\< HOSTNAME \>.UdpStream:
-
 
   This is a switch to enable/disable MP4 stream.
   * when [Motion](#Motion) is disabled the UDP stream starts immediately
@@ -265,13 +258,11 @@ by HASS discovery function via configured MQTT broker.
 ## Motion
 - picam2ctrl.\< HOSTNAME \>.MotionEnabled:
 
-
   This is a switch to enable/disable the motion detection.
   * a switch off request deactivates a running function, too
   * when disabled the Motion binary switch is not available in HASS
 
 - picam2ctrl.\< HOSTNAME \>.Motion:
-
 
   This is a binary switch . It becomes active for ~0.5s if
   * MotionEnabled switch is active
@@ -288,33 +279,30 @@ by HASS discovery function via configured MQTT broker.
 configuration.yaml examples for showing camera output in [Home Assistant](https://www.home-assistant.io/):
 
 ## UDP Stream
-	
+
   ```
   camera:
     - platform: ffmpeg
       name: picamera2
       input: 'udp://@:10001'
   ```
-	
+
 ## picture snapshots
-	
+
   ```
   camera:
     - platform: local_file
       name: picamera2
       file_path: /config/tmp/latest/latest1.jpg
   ```
-	
-## HTTPServer / MJPEG Stream
 
+## HTTPServer / MJPEG Stream
 
 - In Home Assistant go to
   * add integration
   * from the list, search and select “MJPEG IP Camera”
   * in MJPEG-URL field enter
-	
+
   ```
   http://< YOUR_RASPI_ADDRESS >:< CONFIGURED_HTTP_PORT>/stream.mjpg
   ```
-	
-
