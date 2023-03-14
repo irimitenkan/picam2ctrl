@@ -38,7 +38,7 @@
 	"audio":true,
 
     "streaming": {
-	  "udp_addr": "192.168.188.8",
+	  "udp_addr": "<destination IP address>",
 	  "udp_port": 10001,
 	  "http_port": 8010,
 	  "http_index":"www/index.html"
@@ -46,9 +46,9 @@
   },
 
     "MQTTBroker":{ 
-	"host":"192.168.188.8",
+	"host":"<MQTT Broker's IP address>",
 	"port": 8883,
-	"username":"irimi",
+	"username":"brokerUserName",
 	"password":"brokerPassWD",
 	"insecure":true,
 	"connection_retries":3,
@@ -58,8 +58,8 @@
   
   "SSHClient":{ 
   	"enabled":true,
-  	"server": "lenox",
-  	"user" : "irimi",
+  	"server": "<SSH Server e.g. HASS>",
+  	"user" : "<USERNAME>",
   	"dest_path" : "/opt/homeassistant/config/tmp"
   }
 }

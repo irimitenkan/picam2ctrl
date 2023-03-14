@@ -4,17 +4,17 @@
 [Installation](#Installation) |
 [Running the MQTT client](#Running) |
 [Configuration](#Configuration) |
-[Home Assistant Integration](#Integration) |
-[Changelog](https://github.com/irimitenkan/picam2ctrl/CHANGELOG.md)
+[Home Assistant Integration](#Integration)
 
 # Overview
 
 Picam2ctrl is a MQTT client for [Picamera2](https://github.com/raspberrypi/picamera2 ) with [Home Assistant](https://www.home-assistant.io/) discovery support.
-More details about the new libcamera-based Python-API for Raspberry Pi camera you can find [here](https://www.raspberrypi.com/documentation/computers/camera_software.html ) .
 
 *General Restriction*
 
 Since [Picamera2](https://github.com/raspberrypi/picamera2) is currently only available as a [beta release](https://github.com/raspberrypi/picamera2#readme) *picam2ctrl* can break with newer *Picamera2* releases.
+
+More details about the new libcamera-based Python-API for Raspberry Pi camera you can find [here](https://www.raspberrypi.com/documentation/computers/camera_software.html ) .
 
 # Features
 
@@ -133,7 +133,7 @@ Example config.json
 * "font" : allowed 'HERSHEY' string values see module picam2.FONTS resp. [here](https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html)
 
 ## video options
-* "quality" : "HIGH" - allowed values: VERY_LOW,LOW,MIDDLE,HIGH,VERY_HIGH 
+* "quality" : "HIGH" - allowed values: VERY_LOW, LOW, MEDIUM, HIGH or VERY_HIGH
 * "duration" : 30 - mp4 record time length in [s].
 * "audio":true - enable/disable audio for mp4 file resp UDP streaming (http actually not supported). 
 
@@ -141,7 +141,7 @@ Example config.json
 resp. SCP support to be used to copy latest snapshot picture / mp4 video to a SSH server (e.g. your Home Assistant host) 
 but setup up public key authentication is required:
 
-1. generate an SSH Key with ssh-keygen e.g. ```ssh-keygen -t rsa -b 4096```
+1. generate SSH Key with ssh-keygen e.g. ```ssh-keygen -t rsa -b 4096```
 2. copy the public key to your desired server with
 3. ```ssh-copy-id -i ~/.ssh/id_rsa.pub user@host```
 4. verify passwordless login: ```ssh user@host```
@@ -217,7 +217,7 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.Snapshot:
 
-  This is a switch to enable/disable a picture snapshot function.
+  This is a switch to enable/disable the picture snapshot function.
   * when [image.snapshots](# Configuration) is set to 0, picam2ctrl takes picture every [image.snapshots_t](# Configuration) seconds in an endless loop, since there is no switch off request
   * when count is set to x>0,  picam2ctrl takes x pictures every .. s  and stops.
   * when [Motion](#Motion) is disabled picture(s) will be taken immediately
@@ -227,11 +227,12 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.Video:
 
-  This is a switch to enable/disable a video snapshot function.
+  This is a switch to enable/disable the video snapshot function.
   * when count is set to x>0,  picam2ctrl takes x pictures every .. s  and stops.
   * when [Motion](#Motion) is disabled picture(s) will be taken immediately
   * when [Motion](#Motion) is enabled, picture(s) will be taken only after motion detection
   * when [timestamp](#Configuration) is enabled each picture has a time stamp as configured in json configuration
+  * when [audio](#Configuration) is enabled & available mp4 video file incl. audio stream is created
   * when [SSHClient](#Configuration) is enabled the latest taken picture(s) will be copied via secure shell to configured path @SSH server
 
 
@@ -245,11 +246,11 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.UdpStream:
 
-  This is a switch to enable/disable MP4 stream.
+  This is a switch to enable/disable an UDP video stream.
   * when [Motion](#Motion) is disabled the UDP stream starts immediately
   * when [Motion](#Motion) is enabled, the UDP stream starts after motion detection
-  * when timestamp is enabled the video stream has a time stamp as configured in json configuration
-  * when audio is enabled & available the video+audio stream is created
+  * when [timestamp](#Configuration) is enabled the video stream has a time stamp as configured in json configuration
+  * when [audio](#Configuration) is enabled & available the video+audio stream is created
 
 ## Motion
 - picam2ctrl.\< HOSTNAME \>.MotionEnabled:
@@ -262,7 +263,7 @@ by HASS discovery function via configured MQTT broker.
 
   This is a binary switch . It becomes active for ~0.5s if
   * MotionEnabled switch is active
-  * and one of the above mentioned functions (streaming, picture/video snapshot) is enabled and
+  * and one of the above mentioned functions (streaming, picture/video snapshot) is enabled
   * and a motion has been detected by camera
 
   *Restrictions*
