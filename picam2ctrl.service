@@ -1,6 +1,6 @@
 [Unit]
 Description=picam2ctrl MQTT client
-Documentation=TODO set link
+Documentation=https://github.com/irimitenkan/picam2ctrl#readme
 After=network.target
 [Service]
 WorkingDirectory=%h/picam2ctrl

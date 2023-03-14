@@ -6,7 +6,6 @@
   "index":0,
   "hflip":1,
   "vflip":1,
-  "motion":false,
   "sensitivity": 10,
   "tuning":"/usr/share/libcamera/ipa/raspberrypi/imx708.json"
   },

@@ -1,11 +1,11 @@
 # Picam2ctrl
 [Overview](#Overview) |
-[Features](#features) |
-[Installation](#running) |
-[Running the MQTT client](#running) |
-[Configuration](#Installation) |
+[Features](#Features) |
+[Installation](#Installation) |
+[Running the MQTT client](#Running) |
+[Configuration](#Configuration) |
 [Home Assistant Integration](#Integration) |
-[Changelog](https://github.com/)
+[Changelog](https://github.com/irimitenkan/picam2ctrl/CHANGELOG.md)
 
 # Overview
 
@@ -18,27 +18,36 @@ Since [Picamera2](https://github.com/raspberrypi/picamera2) is currently only av
 
 # Features
 
- MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://www.home-assistant.io/)
+MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://www.home-assistant.io/)
 
-  * taking snapshot pictures
-  * capturing MP4 video audio file
-  * simple HTTP MJPEG Streaming Server
-  * video with audio via UDP streaming
-  * motion/occupancy detection by camera
-
-  * timestamp support
-  * secure copy latest picture- / video-files to SSH server support
+* taking snapshot pictures
+* capturing MP4 videos incl. audio 
+* simple HTTP MJPEG streaming server
+* UDP video streaming
+* motion/occupancy detection by camera
+		
+* timestamp support
+* support of secure copy latest picture- / video-files to SSH server 
 
 # Installation
 
-First steps see [Picamera2 installation](https://github.com/raspberrypi/picamera2#installation )
-
-
-OpenCV python-bindings are required:
+Raspberry Pi OS bullseye version is required and camera legacy mode must be disabled in raspi-config.
+On headless Raspberry Pi OS lite you have to update from *libcamera-apps-lite* to full version *libcamera-apps*. 
+No gui but OpenCV python bindings and paho-mqtt package are required:
 	
   ```
-  apt-get install --no-install-recommends python3-opencv
+  sudo apt-get install -y --no-install-recommends libcamera-apps python3-picamera2 python3-opencv python3-paho-mqtt git
   ```
+	
+finally clone the picam2ctrl repository:
+
+	
+  ```
+  git clone https://github.com/irimitenkan/picam2ctrl.git
+  ```
+	
+
+For Picamera2 with GUI support see [Picamera2 installation](https://github.com/raspberrypi/picamera2#installation )
 		
 # Configuration
 
@@ -54,7 +63,6 @@ Example config.json
     "index":0,
     "hflip":1,
     "vflip":1,
-    "motion":false,
     "sensitivity": 10,
     "tuning":"/usr/share/libcamera/ipa/raspberrypi/imx708.json"
     },
@@ -114,18 +122,50 @@ Example config.json
   }
 
   ```
+
+## camera options 
+* "index":0 - the camera idx of connected camera
+* "hflip", vflip: 0/1 - to rotate camera output
+* "sensitivity": 10 - used for motion detection,for manual calibration, set LogLevel to "DEBUG" and check output during detection.
+* "tuning": "path to file" - special tuning e.g. for noir camera
 	
+## timestamp options
+* "format" = "code string", see documention of [strftime options](https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior)
+* "font" : allowed 'HERSHEY' string values see module picam2.FONTS resp. [here](https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html)
 
+## video options
+* "quality" : "HIGH" - allowed values: VERY_LOW,LOW,MIDDLE,HIGH,VERY_HIGH 
+* "duration" : 30 - mp4 record time length in [s].
+* "audio":true - enable/disable audio for mp4 file resp UDP streaming (http actually not supported). 
 
-# running
+## SSHClient
+resp. SCP support to be used to copy latest snapshot picture / mp4 video to a SSH server (e.g. your Home Assistant host) 
+but setup up public key authentication is required:
+
+1. generate an SSH Key with ssh-keygen e.g. ```ssh-keygen -t rsa -b 4096```
+2. copy the public key to your desired server with
+3. ```ssh-copy-id -i ~/.ssh/id_rsa.pub user@host```
+4. verify passwordless login: ```ssh user@host```
+
+5. finally check user@host has write access to configured destination path e.g.:
+   "dest_path" : "/opt/homeassistant/config/tmp"
+
+# Running
 - to start from terminal
-	
+
   ```
+
+options:
+  --version            show program's version number and exit
+  -h, --help           show this help message and exit
+  -c FILE, --cfg=FILE  set config file default: ./config.json
+
+	
   cd picam2ctrl
   python3 picam2ctrl.py
   ```
 	
-- to stop it &  started from terminal
+- to stop it & started from terminal
 	
   ```
   enter CTRL-C
@@ -176,13 +216,11 @@ by HASS discovery function via configured MQTT broker.
 
 *Known problem*
 * When picam2ctrl is started the very first time, all entities do not enter "available state"
- (Due to unknown reason it seems HASS discovery keeps in pending state)
-* workaround: just stop  and restart picam2ctrl again.
+ (for some unknown reason, it seems HASS discovery keeps in pending state ?)
+* workaround: just stop  and restart picam2ctrl again. Problem disappears after 2nd start.
 
 
-## available HASS entities
-
-
+## available Home Assistant entities
 
 - picam2ctrl.\< HOSTNAME \>.Snapshot:
 
@@ -273,7 +311,7 @@ configuration.yaml examples for showing camera output in [Home Assistant](https:
 - In Home Assistant go to
   * add integration
   * from the list, search and select “MJPEG IP Camera”
-  * in MPEG-URL field enter
+  * in MJPEG-URL field enter
 	
   ```
   http://< YOUR_RASPI_ADDRESS >:< CONFIGURED_HTTP_PORT>/stream.mjpg
