@@ -223,7 +223,7 @@ by HASS discovery function via configured MQTT broker.
   * when [Motion](#Motion) is disabled picture(s) will be taken immediately
   * when [Motion](#Motion) is enabled, picture(s) will be taken only after motion detection
   * when [timestamp](#Configuration) is enabled each picture has a time stamp as configured in json configuration
-  * when [timestamp](#Configuration) is enabled the latest taken picture(s) will be copied via secure shell to configured path @SSH server
+  * when [[SSHClient]](#Configuration) is enabled the latest taken picture(s) will be copied via secure shell to configured path @SSH server
 
 - picam2ctrl.\< HOSTNAME \>.Video:
 
@@ -233,7 +233,7 @@ by HASS discovery function via configured MQTT broker.
   * when [Motion](#Motion) is enabled, picture(s) will be taken only after motion detection
   * when [timestamp](#Configuration) is enabled each picture has a time stamp as configured in json configuration
   * when [audio](#Configuration) is enabled & available mp4 video file incl. audio stream is created
-  * when [SSHClient](#Configuration) is enabled the latest taken picture(s) will be copied via secure shell to configured path @SSH server
+  * when [SSHClient](#Configuration) is enabled the latest taken video will be copied via secure shell to configured path @SSH server
 
 
 - picam2ctrl.\< HOSTNAME \>.HttpStream:
