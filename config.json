@@ -61,6 +61,18 @@
   	"server": "<SSH Server e.g. HASS>",
   	"user" : "<USERNAME>",
   	"dest_path" : "/opt/homeassistant/config/tmp"
+  },
+
+  "PAN":{
+  	"enabled":true,
+  	"check":true,
+  	"speed":"MEDIUM",
+  	"angle_max" : 90,
+	"GPIO_PinA": 27,
+	"GPIO_PinB": 22,
+	"GPIO_PinC": 23,
+	"GPIO_PinD": 24
   }
+
 }
 
