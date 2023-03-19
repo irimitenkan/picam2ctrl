@@ -17,6 +17,7 @@ from picamera2.outputs import FfmpegOutput
 from picamera2.outputs import FileOutput
 from picamera2 import Picamera2, MappedArray
 from picamera2.encoders import JpegEncoder,MJPEGEncoder
+from stepmotor import StepMotor
 from utils import ThreadEvent, Config, StreamingOutput, StreamingHandler,StreamingServer
 from cv2 import putText
 
@@ -392,3 +393,21 @@ class UDPStreamCapture (CaptureThread):
     def _shutdown_(self):
         self.picam2.close()
         super()._shutdown_()
+
+
+class PanCam(ThreadEvent, StepMotor):
+    """
+    PAN camera with stepmotor 
+    """
+    def __init__(self,parent: ThreadEvent, cfg: Config):
+        ThreadEvent.__init__(self,parent)
+        StepMotor.__init__(self, cfg.PAN.GPIO_PinA, 
+                                 cfg.PAN.GPIO_PinB,
+                                 cfg.PAN.GPIO_PinC,
+                                 cfg.PAN.GPIO_PinD,
+                                 cfg.PAN.angle_max,
+                                 cfg.PAN.speed)
+        if cfg.PAN.check:
+            self.testPins()
+        
+    
