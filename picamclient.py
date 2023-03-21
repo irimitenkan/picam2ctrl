@@ -16,6 +16,7 @@ import paho.mqtt.client as mqtt
 
 from enum import Enum
 from utils import Config
+from threading import Semaphore
 from paho.mqtt.client import connack_string as conn_ack
 from picam2 import ImageCapture, VideoCapture, HTTPStreamCapture
 from picam2 import PanCam, getCameraInfo, UDPStreamCapture
@@ -48,8 +49,6 @@ LOG_LEVEL = {
 }
 
 """ client topics as enumeration """
-
-
 class eTPCS(Enum):
     ONLINE_STATE = 1
     
@@ -58,8 +57,9 @@ class eTPCS(Enum):
     HSTREAM_STATE = 12
     USTREAM_STATE = 13
     MOTIONENABLE_STATE = 14
-    END_STATE = 15
-    PAN_STATE = 16
+    PAN_STATE = 15
+    PANA_STATE = 16
+    END_STATE = 17
     
     SNAPSHOT_AVAIL = 20
     VIDEO_AVAIL = 21
@@ -67,6 +67,7 @@ class eTPCS(Enum):
     USTREAM_AVAIL = 23
     MOTIONENABLE_AVAIL = 24
     PAN_AVAIL = 25
+    PANA_AVAIL = 25
     END_AVAIL = 26
     
     SNAPSHOT_SET = 30
@@ -75,11 +76,12 @@ class eTPCS(Enum):
     USTREAM_SET = 33
     MOTIONENABLE_SET = 34
     PAN_SET = 35
-    END_SET = 36
+    PANA_SET = 36
+    END_SET = 37
     
     # BINARY SWITCH
-    MOTION_AVAIL = 40
-    MOTION_STATE = 41
+    MOTION_AVAIL = 45
+    MOTION_STATE = 46
     
     HASS_DISCOVERY_SNAPSHOT = 50
     HASS_DISCOVERY_VIDEO = 51
@@ -88,6 +90,7 @@ class eTPCS(Enum):
     HASS_DISCOVERY_MOTIONENABLE = 54
     HASS_DISCOVERY_MOTION = 55
     HASS_DISCOVERY_PAN = 56
+    HASS_DISCOVERY_PANA = 57
 
 
 """ client topics dictionary eTCPS - topic as string """
@@ -115,8 +118,13 @@ TOPICS = {
     eTPCS.MOTIONENABLE_SET: f"{BASE_TOPIC}/motionenabled/set",
 
     eTPCS.PAN_AVAIL: f"{BASE_TOPIC}/pan/available",
-    eTPCS.PAN_STATE: f"{BASE_TOPIC}/pan/set",
+    eTPCS.PAN_STATE: f"{BASE_TOPIC}/pan/state",
     eTPCS.PAN_SET: f"{BASE_TOPIC}/pan/set",
+
+    eTPCS.PANA_AVAIL: f"{BASE_TOPIC}/pan_auto/available",
+    eTPCS.PANA_STATE: f"{BASE_TOPIC}/pan_auto/state",
+    eTPCS.PANA_SET: f"{BASE_TOPIC}/pan_auto/set",
+
 
     eTPCS.MOTION_AVAIL: f"{BASE_TOPIC}/motion/available",
     eTPCS.MOTION_STATE: f"{BASE_TOPIC}/motion",
@@ -127,7 +135,8 @@ TOPICS = {
     eTPCS.HASS_DISCOVERY_USTREAM: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/udpstream/config",
     eTPCS.HASS_DISCOVERY_MOTIONENABLE: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/motionenabled/config",
     eTPCS.HASS_DISCOVERY_MOTION: f"{HASS_DISCOVERY_PREFIX}/binary_sensor/{hostname}/motion/config",
-    eTPCS.HASS_DISCOVERY_PAN: f"{HASS_DISCOVERY_PREFIX}/number/{hostname}/pan/config"
+    eTPCS.HASS_DISCOVERY_PAN: f"{HASS_DISCOVERY_PREFIX}/number/{hostname}/pan/config",
+    eTPCS.HASS_DISCOVERY_PANA: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/pan_auto/config"
 
 }
 
@@ -153,6 +162,8 @@ class PiCam2Client (mqtt.Client):
         self._child = None
         self._panAngle = 0
         self._PanCam = None
+        self.pana_active=False
+        self.pan_semaphore = Semaphore()
         self.manufacturer = "unknown"
         self.swversion = "x.x"
 
@@ -175,19 +186,23 @@ class PiCam2Client (mqtt.Client):
 
         if self.model.startswith("imx") or self.model.startswith("ov"):
             self.manufacturer = "Raspberry Pi"   
-        if cfg.PAN.enabled:
-            self._PanCam = PanCam(self, self.cfg)
 
-    def daemon_kill(self, *args):
+    def daemon_kill(self, *_args):
         self.client_down()
         logging.info(f"{MQTT_CLIENT_ID} MQTT daemon Goodbye!")
         exit(0)
 
-    """
-    on_connect when MQTT CleanSession=False (default) conn_ack will be send from broker
-    """
-
-    def on_connect(self, client, userdata, flags, rc):
+    def checkNewPanCam(self):
+        """
+        check new PanCam instance required due to multiple Pan-Automation requests
+        """
+        if self.cfg.PAN.enabled and None==self._PanCam:
+            self._PanCam = PanCam(self, self.cfg)
+        
+    def on_connect(self, _client, _userdata, _flags, rc):
+        """
+        on_connect when MQTT CleanSession=False (default) conn_ack will be send from broker
+        """
         logging.debug(f"Connection returned result: {conn_ack(rc)}")
         self._online = True
         self.publish_hass()
@@ -195,7 +210,7 @@ class PiCam2Client (mqtt.Client):
         self.publish_avail_topics()
         time.sleep(1)
         self.publish_state_topics()
-        time.sleep(2)
+        time.sleep(1)
         self.subsribe_topics()
         
     def publish_avail_topics(self):
@@ -221,8 +236,23 @@ class PiCam2Client (mqtt.Client):
         if TOPICS[eTPCS.PAN_SET] == message.topic:
             logging.debug(f"Camera PAN request {payload}")
             self._panAngle = int(payload)
+            self.checkNewPanCam()
+            if self._PanCam and not self.pana_active:
+                self.pan_semaphore.acquire()
+                self._PanCam.rotate_to(self._panAngle)
+                self.pan_semaphore.release()
+                self.publish_state(eTPCS.PAN_STATE)  
+        elif TOPICS[eTPCS.PANA_SET] == message.topic:
+            logging.debug(f"Camera PAN Auto Motion {payload}")
+            self.checkNewPanCam()
             if self._PanCam:
-                self._PanCam.rotate_to(self._panAngle)  
+                if payload == "ON" and not self.pana_active:
+                    self.pana_active=True
+                    self._PanCam.start()
+                    self.publish_state(eTPCS.PANA_STATE)
+                elif payload == "OFF" and self.pana_active:
+                    self._PanCam.trigger_stop()
+                    #reset of active state by child_down
         
         elif message.topic == TOPICS[eTPCS.MOTIONENABLE_SET]:
             if payload == "ON":
@@ -262,7 +292,7 @@ class PiCam2Client (mqtt.Client):
                     self.publish_state(eTPCS.USTREAM_STATE)
                     self._child.start()
             else:
-                logging.warn("unhandled payload" + payload)
+                logging.warning("unhandled payload" + payload)
         else:
             if message.topic == TOPICS[eTPCS.SNAPSHOT_SET] and \
                     isinstance(self._child, ImageCapture):
@@ -301,49 +331,64 @@ class PiCam2Client (mqtt.Client):
     #    logging.info("on_log: "+buf)
 
     def client_down(self):
+        """
+        clean up everything when keyboard CTRL-C or daemon kill request occurs
+        """
         for t in range(eTPCS.SNAPSHOT_AVAIL.value, eTPCS.END_AVAIL.value):
             self.publish_avail(eTPCS(t), False)
         
         self.publish_avail(eTPCS.MOTION_AVAIL, False)
         self._online = False
-        # self.publish_state(eTPCS.ONLINE_STATE)
+        self.publish_state(eTPCS.ONLINE_STATE)
         if self._PanCam:
             self._PanCam.reset_angle()
         self.disconnect()
         self.loop_stop()
 
-    def child_down(self) -> None:
-        child = "unknown"
-        if isinstance(self._child, ImageCapture):
-            child = "ImageCapture"
+    def child_down(self, child):
+        """ callback function when picam2 threads stop """
+        logging.debug("child_down received:" + str(child))
+        
+        if isinstance(child, ImageCapture):
             self._snapshot = False
             self.publish_state(eTPCS.SNAPSHOT_STATE)
-        elif isinstance(self._child, VideoCapture):
-            child = "VideoCapture"
+            self._child = None
+        elif isinstance(child, VideoCapture):
             self._video = False
             self.publish_state(eTPCS.VIDEO_STATE)
-        elif isinstance(self._child, HTTPStreamCapture):
+            self._child = None
+        elif isinstance(child, HTTPStreamCapture):
             self._hstream = False
             self.publish_state(eTPCS.HSTREAM_STATE)
-            child = "HTTPStreamCapture"
-        elif isinstance(self._child, UDPStreamCapture):
+            self._child = None
+        elif isinstance(child, UDPStreamCapture):
             self._ustream = False
             self.publish_state(eTPCS.USTREAM_STATE)
-            child = "UDPStreamCapture"
-
-        logging.debug("child_down received:" + child)
-        self._child = None
+            self._child = None
+        elif isinstance(child, PanCam):
+            self.pana_active=False
+            self._panAngle=child.get_angle()
+            self.publish_state(eTPCS.PANA_STATE)
+            self.publish_state(eTPCS.PAN_STATE)
+            self._PanCam=None # delete old reference
 
     def motion_detected(self):
+        """ callback function when motion has been detected """
+        logging.debug("callback motion_detected")
         self.publish_state(eTPCS.MOTION_STATE,
                            encode_json({"occupancy": True}))
         time.sleep(0.5)
         self.publish_state(eTPCS.MOTION_STATE,
                            encode_json({"occupancy": False}))
+    
+    def pan_update(self,angle:int):
+        """ callback function when PanCam has completed """
+        logging.debug(f"callback pan_update:{angle}°")
+        self._panAngle=angle
+        self.publish_state(eTPCS.PAN_STATE)
 
-    """ publish avalibale topics """
-
-    def publish_avail(self, msg: eTPCS, avail=True) -> None:
+    def publish_avail(self, msg: eTPCS, avail=True):
+        """ publish avalibale topics """
         retain = RETAIN
         payload = None
         if msg.value >= eTPCS.SNAPSHOT_AVAIL.value or \
@@ -358,9 +403,9 @@ class PiCam2Client (mqtt.Client):
         else:
             logging.warning(f"unhandled publish avail message:{TOPICS[msg]}")
 
-    """ publish state topics """
 
-    def publish_state(self, msg: eTPCS, payload=None) -> None:
+    def publish_state(self, msg: eTPCS, payload=None):
+        """ publish state topics """
         retain = RETAIN
         topic = TOPICS[msg]
         if eTPCS.ONLINE_STATE == msg:
@@ -375,9 +420,10 @@ class PiCam2Client (mqtt.Client):
             payload = "ON" if self._ustream else "OFF"
         elif eTPCS.MOTIONENABLE_STATE == msg:
             payload = "ON" if self._motionEnabled else "OFF"
+        elif eTPCS.PANA_STATE == msg:
+            payload = "ON" if self.pana_active else "OFF"
         elif eTPCS.PAN_STATE == msg:
             payload = self._panAngle
-            # logging.warning(" PAN_STATE payload")
 
         if payload is not None:
             self.publish(topic, payload, retain)
@@ -385,11 +431,12 @@ class PiCam2Client (mqtt.Client):
         else:
             logging.warning(f"unhandled publish state message:{TOPICS[msg]}")
 
-    """ 
-    publish all homeassistant discovery topics
-    """
 
     def publish_hass(self):
+        """ 
+        publish all homeassistant discovery topics
+        """
+
         """     
             <discovery_prefix>/<component>/[<node_id>/]<object_id>/config
             https://www.home-assistant.io/integrations/mqtt#mqtt-discovery
@@ -504,7 +551,6 @@ class PiCam2Client (mqtt.Client):
             "availability_topic": TOPICS[eTPCS.PAN_AVAIL],
             "device_class": "distance",
             "icon": "mdi:pan-horizontal",
-            # "json_attributes_topic": f"{MQTT_CLIENT_ID}/{hostname}/pan",
             "unique_id": f"{MQTT_CLIENT_ID}/{hostname}/pan",
             "state_topic": TOPICS[eTPCS.PAN_STATE],
             "command_template": "{{ value }}",
@@ -519,14 +565,26 @@ class PiCam2Client (mqtt.Client):
         }
         self.publish(TOPICS[eTPCS.HASS_DISCOVERY_PAN],
                      payload=encode_json(config_pan), retain=True)
-    
-    # #{{states('sensor.kitchen_temperature')}}
 
-    """
-    Start the MQTT client
-    """
+        config_pana = {
+            "device": dev,
+            "device_class": "switch",
+            "availability_topic": TOPICS[eTPCS.PANA_AVAIL],
+            "icon": "mdi:pan-horizontal",
+            "command_topic": TOPICS[eTPCS.PANA_SET],
+            "unique_id": f"{MQTT_CLIENT_ID}/{hostname}/pan_automation",
+            "payload_on": "ON",
+            "payload_off": "OFF",
+            "state_topic": TOPICS[eTPCS.PANA_STATE],
+            "name": f"{MQTT_CLIENT_ID}.{hostname}.Pan-Automation"
+        }
+        self.publish(TOPICS[eTPCS.HASS_DISCOVERY_PANA],
+                     payload=encode_json(config_pana), retain=True)
 
     def startup_client(self):
+        """
+        Start the MQTT client
+        """
         logging.info(f'Starting up MQTT Service {MQTT_CLIENT_ID}')
         mqttattempts = 0
         while mqttattempts < self.cfg.MQTTBroker.connection_retries:
@@ -577,12 +635,12 @@ class PiCam2Client (mqtt.Client):
                 self.loop_stop()
                 exit(-1)
 
-"""
-generator help function to create MQTT client instance  & start it
-"""
 
 
 def startClient(cfg: Config):
+    """
+    generator help function to create MQTT client instance  & start it
+    """
 
     logging.basicConfig(level=LOG_LEVEL[cfg.LogLevel],
                         format='%(asctime)s - %(levelname)s - %(message)s',

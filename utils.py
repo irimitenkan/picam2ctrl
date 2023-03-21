@@ -56,32 +56,25 @@ class ThreadEvent(threading.Thread):
     def __init__(self, parent=None):
         threading.Thread.__init__(self)
         self.timeout = None
-        self.loop = False
         self._parent = parent
         self._stopEvent = threading.Event()
 
     def run(self):
-        if self.loop:
-            ret = True
-            while not self._stopEvent.is_set() and ret:
-                ret = self._worker_()
-        else:
-            self._worker_()
-            self._stopEvent.wait(self.timeout)
-
+        self._worker_()
+        self._stopEvent.wait(self.timeout)
         self._shutdown_()
 
-    def _worker_(self) -> bool:
-        return False
-
-    def _shutdown_(self) -> None:
-        if self._parent:
-            self._parent.child_down()
-
-    def child_down(self) -> None:
+    def _worker_(self):
         pass
 
-    def trigger_stop(self) -> None:
+    def _shutdown_(self):
+        if self._parent:
+            self._parent.child_down(self)
+
+    def child_down(self):
+        pass
+
+    def trigger_stop(self):
         self._stopEvent.set()
 
 

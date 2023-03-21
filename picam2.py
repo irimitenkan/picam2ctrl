@@ -4,19 +4,18 @@ Created on 09.02.2023
 @author: irimi
 '''
 import time
-import socket
 import json
 import logging
 import numpy as np
 import subprocess as sp
 import libcamera
 from datetime import datetime as dt
-from pathlib import Path, PurePath
+from pathlib import Path
 from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
 from picamera2.outputs import FileOutput
 from picamera2 import Picamera2, MappedArray
-from picamera2.encoders import JpegEncoder,MJPEGEncoder
+from picamera2.encoders import MJPEGEncoder
 from stepmotor import StepMotor
 from utils import ThreadEvent, Config, StreamingOutput, StreamingHandler,StreamingServer
 from cv2 import putText
@@ -48,9 +47,10 @@ def getCameraInfo():
         shell=True,
         stdout=sp.PIPE,
         stderr=sp.PIPE)
-    (stdout, stderr) = p.communicate()
+    (stdout, _stderr) = p.communicate()
     if p.returncode == 0:
-        res= [Picamera2.global_camera_info(), str (stdout)]
+        res= [Picamera2.global_camera_info(),
+              str (stdout).strip('\\n').strip()]
     
     return res
 
@@ -187,14 +187,12 @@ class CaptureThread(ThreadEvent):
     def _record_motion_(self):
         self._single_capture_()
 
-    def _worker_(self) -> bool:
+    def _worker_(self):
         if self._bMotion:
             self._wait_for_motion_()
-            return False
         else:
             self.timeout = 1
             self._single_capture_()
-            return False
 
 
     """
@@ -215,6 +213,8 @@ class ImageCapture (CaptureThread):
     """
     capture snapshot images to defined storepath
     """
+    def __repr__(self):
+        return "ImageCapture" 
     
     def __init__(self, parent: ThreadEvent, cfg: Config, bMotion):
         super().__init__(parent, cfg, bMotion)
@@ -280,6 +280,10 @@ class VideoCapture (CaptureThread):
     """
     capture (mp4) videos  with / without audio to defined storepath
     """
+    
+    def __repr__(self):
+        return "VideoCapture" 
+
     def __init__(self, parent: ThreadEvent, cfg: Config, bMotion):
         super().__init__(parent, cfg, bMotion)
         logging.debug("creating VideoCapture")
@@ -326,6 +330,8 @@ class HTTPStreamCapture (CaptureThread):
     """
     simple HTTP Webserver page with video live stream 
     """
+    def __repr__(self):
+        return "HTTPStreamCapture" 
     
     def __init__(self, parent: ThreadEvent, cfg: Config, bMotion):
         super().__init__(parent, cfg, bMotion)
@@ -367,6 +373,10 @@ class UDPStreamCapture (CaptureThread):
     """
     UDP video live stream 
     """
+    
+    def __repr__(self):
+        return "UDPStreamCapture" 
+    
     def __init__(self, parent: ThreadEvent, cfg: Config, bMotion):
         super().__init__(parent, cfg,bMotion)
         logging.debug("creating UDPStreamCapture")
@@ -399,6 +409,9 @@ class PanCam(ThreadEvent, StepMotor):
     """
     PAN camera with stepmotor 
     """
+    def __repr__(self):
+        return "PanCam" 
+
     def __init__(self,parent: ThreadEvent, cfg: Config):
         ThreadEvent.__init__(self,parent)
         StepMotor.__init__(self, cfg.PAN.GPIO_PinA, 
@@ -409,5 +422,22 @@ class PanCam(ThreadEvent, StepMotor):
                                  cfg.PAN.speed)
         if cfg.PAN.check:
             self.testPins()
+        self.max_degree=cfg.PAN.angle_max
+        self.triggered=False
+                
+    def _worker_(self):
+        """
+        auto pan function
+        """
+        while not self._stopEvent.is_set(): 
+            dest=self.max_degree
+            if self.get_angle()>0:
+                dest=-dest
+            
+            self.rotate_to(dest)
+            self._parent.pan_update(dest)
         
+    def _shutdown_(self):
+        self.reset_angle()
+        super()._shutdown_()
     
