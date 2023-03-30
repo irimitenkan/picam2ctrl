@@ -4,17 +4,18 @@
 [Installation](#Installation) |
 [Running the MQTT client](#Running) |
 [Configuration](#Configuration) |
-[Home Assistant Integration](#Integration)
+[Pan-Hardware](#PAN-Hardware) |
+[Home Assistant Integration](#HASS-Integration)
 
 # Overview
 
-Picam2ctrl is a MQTT client for [Picamera2](https://github.com/raspberrypi/picamera2 ) with [Home Assistant](https://www.home-assistant.io/) discovery support.
+Picam2ctrl is a MQTT client based on new [Picamera2 API](https://github.com/raspberrypi/picamera2 ) with [Home Assistant](https://www.home-assistant.io/) discovery support.
 
 *General Restriction*
 
 Since [Picamera2](https://github.com/raspberrypi/picamera2) is currently only available as a [beta release](https://github.com/raspberrypi/picamera2#readme) *picam2ctrl* can break with newer *Picamera2* releases.
 
-More details about the new libcamera-based Python-API for Raspberry Pi camera you can find [here](https://www.raspberrypi.com/documentation/computers/camera_software.html ) .
+More details about the new libcamera-based Python-API for Raspberry Pi camera you can find [here](https://www.raspberrypi.com/documentation/computers/camera_software.html ).
 
 # Features
 
@@ -26,6 +27,7 @@ MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://ww
 * UDP video streaming
 * motion/occupancy detection by camera
 * timestamp support
+* PAN camera support with 5V Stepper Motor (28BYJ-48) and ULN2003 driver board
 * support of secure copy latest picture- / video-files to SSH server 
 
 # Installation
@@ -35,7 +37,7 @@ On headless Raspberry Pi OS lite you have to update from *libcamera-apps-lite* t
 No gui but OpenCV python bindings and paho-mqtt package are required:
 
   ```
-  sudo apt-get install -y --no-install-recommends libcamera-apps python3-picamera2 python3-opencv python3-paho-mqtt git
+  sudo apt-get install -y --no-install-recommends libcamera-apps python3-picamera2 python3-opencv python3-paho-mqtt ffmpeg git
   ```
 
 finally clone the picam2ctrl repository:
@@ -117,7 +119,19 @@ Example config.json
       "server": "<SSH SERVER ADDRESS>",
       "user" : "<SSH USERNAME>",
       "dest_path" : "/opt/homeassistant/config/tmp"
+    },
+    
+    "PAN":{
+     "enabled":true,
+     "check":true,
+     "speed":"MEDIUM",
+     "angle_max" : 90,
+	 "GPIO_PinA": 27,
+	 "GPIO_PinB": 22,
+	 "GPIO_PinC": 23,
+	 "GPIO_PinD": 24
     }
+    
   }
 
   ```
@@ -137,7 +151,7 @@ Example config.json
 * "duration" : 30 - mp4 record time length in [s].
 * "audio":true - enable/disable audio for mp4 file resp UDP streaming (http actually not supported). 
 
-## SSHClient
+## SSHClient options
 resp. SCP support to be used to copy latest snapshot picture / mp4 video to a SSH server (e.g. your Home Assistant host) 
 but setup up public key authentication is required:
 
@@ -148,6 +162,12 @@ but setup up public key authentication is required:
 
 5. finally check user@host has write access to configured destination path e.g.:
    "dest_path" : "/opt/homeassistant/config/tmp"
+
+## PAN options
+* "check" : when 'true' the LEDs on ULN2003 driver board will flash during startup (A->B->C->D, if GPIO PINS are connected correctly), disabled with 'false'
+* 'speed' : PAN speed, allowed values: VERY_SLOW, SLOW, MEDIUM, FAST, VERY_FAST
+* 'angle_max : maxium absolute angle to pan camera to left resp. right side  
+* 'GPIO_PinA (B, C, D)' : GPIO Pin A (B, C, D) of ULN2003 driver board wiring assigment, see check option for verification. More details see [PAN-HW chapter](#PAN-Hardware)
 
 # Running
 - to start from terminal
@@ -201,8 +221,18 @@ but setup up public key authentication is required:
   journalctl --user-unit picam2ctrl
   ```
 
+# PAN-Hardware
 
-# Integration
+The PAN camera can be realized with a step-motor which can be controlled with 4 GPIO ports of your Raspberry Pi.
+You need to buy a [5V step motor 28BYJ-48 with ULN2003 driver board](https://www.amazon.com/s?k=ULN2003+driver+board+28BYJ-48).
+ 
+Howto setup the hardware wiring you can find e.g.[here](https://diyprojectslab.com/28byj-48-stepper-motor-with-raspberry-pi-pico/) or [here](https://github.com/gavinlyonsrepo/RpiMotorLib/blob/master/Documentation/28BYJ.md).
+
+Finally we need a construction to pan the connected Raspberry Pi Camera with above mentioned step-motor. As solution a Raspberry Pi housing with camera integration support is recommended: we pan the complete Raspberry case.
+
+My 1st prototype is using the [Raspberry Pi 3 case](https://www.raspberrypi.com/products/raspberry-pi-3-case/) with wide angle camera:
+
+# HASS-Integration
 
 All picam2ctrl entities will be detected by Home Assistant automatically
 by HASS discovery function via configured MQTT broker.
@@ -210,14 +240,14 @@ by HASS discovery function via configured MQTT broker.
 *Known problem*
 * When picam2ctrl is started the very first time, all entities do not enter "available state"
  (for some unknown reason, it seems HASS discovery keeps in pending state ?)
-* workaround: just stop  and restart picam2ctrl again. Problem disappears after 2nd start.
-
+* workaround: just stop  and restart picam2ctrl again and restart Home-Assistant, too. Problem disappears after 2nd start. This is reproducible when I delete all picam2ctrl MQTT messages with [MQTT-Explorer](http://mqtt-explorer.com/).
+  
 
 ## available Home Assistant entities
 
 - picam2ctrl.\< HOSTNAME \>.Snapshot:
 
-  This is a switch to enable/disable the picture snapshot function.
+  This is a *switch* to enable/disable the picture snapshot function.
   * when [image.snapshots](# Configuration) is set to 0, picam2ctrl takes picture every [image.snapshots_t](# Configuration) seconds in an endless loop, since there is no switch off request
   * when count is set to x>0,  picam2ctrl takes x pictures every .. s  and stops.
   * when [Motion](#Motion) is disabled picture(s) will be taken immediately
@@ -227,7 +257,7 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.Video:
 
-  This is a switch to enable/disable the video snapshot function.
+  This is a *switch* to enable/disable the video snapshot function.
   * when count is set to x>0,  picam2ctrl takes x pictures every .. s  and stops.
   * when [Motion](#Motion) is disabled picture(s) will be taken immediately
   * when [Motion](#Motion) is enabled, picture(s) will be taken only after motion detection
@@ -238,7 +268,7 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.HttpStream:
 
-  This is a switch to enable/disable a simple HTTP Server with MJPEG stream.
+  This is a *switch* to enable/disable a simple HTTP Server with MJPEG stream.
   * when [Motion](#Motion) is disabled the MJPEG stream starts immediately
   * when [Motion](#Motion)  is enabled, the MJEP stream starts after motion detection
   * when [timestamp](#Configuration) is enabled the MJPEG stream has a time stamp as configured in json configuration
@@ -246,22 +276,33 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.UdpStream:
 
-  This is a switch to enable/disable an UDP video stream.
+  This is a *switch* to enable/disable an UDP video stream.
   * when [Motion](#Motion) is disabled the UDP stream starts immediately
   * when [Motion](#Motion) is enabled, the UDP stream starts after motion detection
   * when [timestamp](#Configuration) is enabled the video stream has a time stamp as configured in json configuration
   * when [audio](#Configuration) is enabled & available the video+audio stream is created
 
+## PAN
+
+- picam2ctrl.\< HOSTNAME \>.Pan-Automation:
+  
+  This is a *switch* to enable/disable to pan the camera in range from -angle_max to +angle_max automatically.
+
+- picam2ctrl.\< HOSTNAME \>.Pan:
+  
+  This is a *slider* to pan the camera in range -angle_max to +angle_max manually.
+
+  
 ## Motion
 - picam2ctrl.\< HOSTNAME \>.MotionEnabled:
 
-  This is a switch to enable/disable the motion detection.
+  This is a *switch* to enable/disable the motion detection.
   * a switch off request deactivates a running function, too
   * when disabled the Motion binary switch is not available in HASS
 
 - picam2ctrl.\< HOSTNAME \>.Motion:
 
-  This is a binary switch . It becomes active for ~0.5s if
+  This is a *binary switch* . It becomes active for ~0.5s if
   * MotionEnabled switch is active
   * and one of the above mentioned functions (streaming, picture/video snapshot) is enabled
   * and a motion has been detected by camera
