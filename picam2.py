@@ -182,6 +182,7 @@ class CaptureThread(ThreadEvent):
                 logging.debug("mse delta reset " + str(stime))
                 stime = time.time()
                 prev = cur
+                time.sleep(0.5) # reduce power consumption
 
     """ default method when motion has been detected"""
     def _record_motion_(self):
