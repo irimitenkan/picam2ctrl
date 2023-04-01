@@ -228,9 +228,10 @@ You need to buy a [5V step motor 28BYJ-48 with ULN2003 driver board](https://www
  
 Howto setup the hardware wiring you can find e.g.[here](https://diyprojectslab.com/28byj-48-stepper-motor-with-raspberry-pi-pico/) or [here](https://github.com/gavinlyonsrepo/RpiMotorLib/blob/master/Documentation/28BYJ.md).
 
-Finally we need a construction to pan the connected Raspberry Pi Camera with above mentioned step-motor. As solution a Raspberry Pi housing with camera integration support is recommended: we pan the complete Raspberry case.
+Finally we need a construction to pan the connected Raspberry Pi Camera with above mentioned step-motor. As solution a Raspberry Pi housing with camera integration support is recommended: we pan the complete Raspberry Pi case.
 
-My 1st prototype is using the [Raspberry Pi 3 case](https://www.raspberrypi.com/products/raspberry-pi-3-case/) with wide angle camera:
+My 1st prototype is using the [Raspberry Pi 3 case](https://www.raspberrypi.com/products/raspberry-pi-3-case/) with a wide angle camera.
+Here is an [image of the PAN camera prototype](https://github.com/irimitenkan/picam2ctrl/blob/main/images/Mounted_Prototype_1.jpg) and some construction details [Mounting_Prototype_1.jpg](https://github.com/irimitenkan/picam2ctrl/blob/main/images/Mounting_Prototype_1.jpg) & [Mounting_Prototype_2.jpg](https://github.com/irimitenkan/picam2ctrl/blob/main/images/Mounting_Prototype_2.jpg)
 
 # HASS-Integration
 
