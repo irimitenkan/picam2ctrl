@@ -255,7 +255,8 @@ class PiCam2Client (mqtt.Client):
                     #reset of active state by child_down
         
         elif message.topic == TOPICS[eTPCS.MOTIONENABLE_SET]:
-            if payload == "ON":
+            if payload == "ON" and not self._child:
+                #ignore since child app is active 
                 self._motionEnabled = True
                 self.publish_state(eTPCS.MOTIONENABLE_STATE)
                 self.publish_avail(eTPCS.MOTION_AVAIL)
@@ -263,7 +264,7 @@ class PiCam2Client (mqtt.Client):
                 self._motionEnabled = False
                 self.publish_state(eTPCS.MOTIONENABLE_STATE)
                 self.publish_avail(eTPCS.MOTION_AVAIL, False)
-                if self._child:  # # already active
+                if self._child:  # # already active -> disable
                     self._child.trigger_stop()
             
         elif not self._child:
