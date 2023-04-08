@@ -16,7 +16,6 @@ from picamera2.outputs import FfmpegOutput
 from picamera2.outputs import FileOutput
 from picamera2 import Picamera2, MappedArray
 from picamera2.encoders import MJPEGEncoder
-from stepmotor import StepMotor
 from utils import ThreadEvent, Config, StreamingOutput, StreamingHandler,StreamingServer
 from cv2 import putText
 
@@ -405,40 +404,3 @@ class UDPStreamCapture (CaptureThread):
         self.picam2.close()
         super()._shutdown_()
 
-
-class PanCam(ThreadEvent, StepMotor):
-    """
-    PAN camera with stepmotor 
-    """
-    def __repr__(self):
-        return "PanCam" 
-
-    def __init__(self,parent: ThreadEvent, cfg: Config):
-        ThreadEvent.__init__(self,parent)
-        StepMotor.__init__(self, cfg.PAN.GPIO_PinA, 
-                                 cfg.PAN.GPIO_PinB,
-                                 cfg.PAN.GPIO_PinC,
-                                 cfg.PAN.GPIO_PinD,
-                                 cfg.PAN.angle_max,
-                                 cfg.PAN.speed)
-        if cfg.PAN.check:
-            self.testPins()
-        self.max_degree=cfg.PAN.angle_max
-        self.triggered=False
-                
-    def _worker_(self):
-        """
-        auto pan function
-        """
-        while not self._stopEvent.is_set(): 
-            dest=self.max_degree
-            if self.get_angle()>0:
-                dest=-dest
-            
-            self.rotate_to(dest)
-            self._parent.pan_update(dest)
-        
-    def _shutdown_(self):
-        self.reset_angle()
-        super()._shutdown_()
-    

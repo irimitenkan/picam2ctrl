@@ -78,7 +78,7 @@ class StepMotor (object):
         self.PinC=Pin(GPIO_C)
         self.PinD=Pin(GPIO_D)
         self.PINS=[self.PinA,self.PinB,self.PinC,self.PinD]
-        self.wtime=WTIME.get(speed,wtime*5)
+        self.wtime=WTIME.get(speed,WTIME["MEDIUM"])
         logging.debug (f"Creating StepMotor max angle +-{self.ANGLE_MAX}/{ANGLE_FULL}, wtime = {self.wtime}")
         
     def rotate_to (self,degree :int):
@@ -160,7 +160,7 @@ class StepMotor (object):
         reset step motor to 0° (as started) 
         """
         old=self.wtime
-        self.wtime=wtime
+        self.wtime=speed
         logging.debug("reset rot to 0")
         if self._angle<0:
             self._rot_right_(-self._angle)

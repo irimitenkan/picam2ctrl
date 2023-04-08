@@ -63,15 +63,36 @@
   	"dest_path" : "/opt/homeassistant/config/tmp"
   },
 
-  "PAN":{
-  	"enabled":true,
-  	"check":true,
-  	"speed":"MEDIUM",
-  	"angle_max" : 90,
-	"GPIO_PinA": 27,
-	"GPIO_PinB": 22,
-	"GPIO_PinC": 23,
-	"GPIO_PinD": 24
+  "PanTilt":{
+     "active":"None",
+	 "Tilt_angle_max" :50,
+	 "Pan_angle_max" : 70,
+	 "speed":"MEDIUM",
+	
+	"None":{
+		"//":"PanTilt is disabled"
+		},
+	
+  	"ULN2003":{
+		 
+	  	"Pan_enabled":true,
+	  	"Tilt_enabled":false,
+	  	"check":true,
+		"Pan_GPIO_PinA": 27,
+		"Pan_GPIO_PinB": 22,
+		"Pan_GPIO_PinC": 23,
+		"Pan_GPIO_PinD": 24,
+	
+		"Tilt_GPIO_PinA": 13,
+		"Tilt_GPIO_PinB": 15,
+		"Tilt_GPIO_PinC": 16,
+		"Tilt_GPIO_PinD": 18
+	},
+	
+	"WAVESHARE_HAT":{
+		"sensorRefresh":60
+			  }
+
   }
 
 }

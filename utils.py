@@ -71,13 +71,27 @@ class ThreadEvent(threading.Thread):
         if self._parent:
             self._parent.child_down(self)
 
-    def child_down(self):
+    def child_down(self,child):
         pass
 
     def trigger_stop(self):
         self._stopEvent.set()
 
+class ThreadEvents(ThreadEvent):
+    def __init__(self):
+        self.threads=list()
 
+    def addThread (self, newThread: ThreadEvent):
+        #self.threads.update({tId, newThread})
+        self.threads.append(newThread)
+        
+    def rmThread (self,rmThread: ThreadEvent ):
+        if rmThread in self.threads:
+            self.threads.remove(rmThread)
+            
+    def stopAllThreads(self):
+        for t in self.threads:
+            t.trigger_stop()
 
 # Mostly copied from
 # https://github.com/raspberrypi/picamera2/blob/next/examples/mjpeg_server_2.py

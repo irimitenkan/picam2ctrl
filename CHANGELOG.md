@@ -1,5 +1,15 @@
 # Change Log
 
+## v0.2.0
+
+### Added
+ * general tilt support
+ * Waveshare's Pan-Tilt Hat
+ * Waveshare's lightsensor 
+
+### Changed
+ * pan redesign
+ 
 ## v0.1.1 
 
 ### Added

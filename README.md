@@ -21,13 +21,16 @@ More details about the new libcamera-based Python-API for Raspberry Pi camera yo
 
 MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://www.home-assistant.io/)
 
+
+* actual 10 different MQTT client entities
 * taking snapshot pictures
 * capturing MP4 videos incl. audio 
 * simple HTTP MJPEG streaming server
 * UDP video streaming
 * motion/occupancy detection by camera
 * timestamp support
-* PAN camera support with 5V Stepper Motor (28BYJ-48) and ULN2003 driver board
+* PAN / TILT camera support with 5V Stepper Motor (28BYJ-48) and ULN2003 driver board (optinal)
+* PAN-TILT Hat by Waveshare integrated incl. lighsensor
 * support of secure copy latest picture- / video-files to SSH server 
 
 # Installation
@@ -48,7 +51,45 @@ finally clone the picam2ctrl repository:
   ```
 
 
-For Picamera2 with GUI support see [Picamera2 installation](https://github.com/raspberrypi/picamera2#installation )
+## Installation & Calibration of Waveshare's Pan-Tilt Hat (optional)
+
+For 1st setup the calibration of the servos is required to avoid a damage when the servos are assembled, i.e. that must be done *BEFORE* the Pan-Tilt Hat is assembled completly. After that the servomotors are set to 0° degrees. Keep in mind you still have to consider the angles for assignment of the CAM direction when you assemble the hat.
+
+According to Waweshare's [documentation](https://www.waveshare.com/w/upload/b/b9/Pan-Tilt_HAT_user_manual_en.pdf) there is a test program for servo adjustment but it requires WiringPi which has been removed from Bullseye's repro. WiringPi package is still available at [github](https://github.com/WiringPi/WiringPi/releases/download/2.61-1/wiringpi-2.61-1-armhf.deb) but we can use here a python script instead. It is available at this picam2ctrl repro.
+
+Hence:
+
+* enable I2C in raspi-config (Interface options -> I2C -> enable)
+* python smbus is required:
+
+
+  ```
+  sudo apt install python3-smbus
+  ```
+
+* only connect Pan & Tilt servos to hat
+* connect hat with Raspberry Pi
+* execute servoTest  
+
+
+  ```
+  python pantilt/waveshare/servoTest.py
+  ```
+
+* proceed with Pan-Tilt Hat assembling see Waveshare's [guideline](https://www.waveshare.com/img/devkit/accBoard/Pan-Tilt-HAT/Pan-Tilt-HAT-assemble.jpg)
+
+* finally enable Pan-Tilt Hat in config.json if not already done
+
+
+  ```
+  "PanTilt":{
+     "active":"WAVESHARE_HAT",
+     
+  ```
+
+
+## Picamera2 options
+For Picamera2 with GUI support , for non-headless Raspberry see [Picamera2 installation](https://github.com/raspberrypi/picamera2#installation )
 
 # Configuration
 
@@ -121,17 +162,36 @@ Example config.json
       "dest_path" : "/opt/homeassistant/config/tmp"
     },
     
-    "PAN":{
-     "enabled":true,
-     "check":true,
-     "speed":"MEDIUM",
-     "angle_max" : 90,
-	 "GPIO_PinA": 27,
-	 "GPIO_PinB": 22,
-	 "GPIO_PinC": 23,
-	 "GPIO_PinD": 24
-    }
-    
+  "PanTilt":{
+     "active":"WAVESHARE_HAT",
+	 "Pan_angle_max" : 80,
+	 "Tilt_angle_max" :50,
+	 "speed":"MEDIUM",
+	
+	"None":{
+		"//":"PanTilt is disabled"
+		},
+
+  	"ULN2003":{
+		 
+	  	"Pan_enabled":true,
+	  	"Tilt_enabled":false,
+	  	"check":true,
+		"Pan_GPIO_PinA": 27,
+		"Pan_GPIO_PinB": 22,
+		"Pan_GPIO_PinC": 23,
+		"Pan_GPIO_PinD": 24,
+	
+		"Tilt_GPIO_PinA": 13,
+		"Tilt_GPIO_PinB": 15,
+		"Tilt_GPIO_PinC": 16,
+		"Tilt_GPIO_PinD": 18
+	},
+	
+	"WAVESHARE_HAT":{
+		"sensorRefresh":60
+			  }
+
   }
 
   ```
@@ -163,11 +223,14 @@ but setup up public key authentication is required:
 5. finally check user@host has write access to configured destination path e.g.:
    "dest_path" : "/opt/homeassistant/config/tmp"
 
-## PAN options
+## PanTilt options
 * "check" : when 'true' the LEDs on ULN2003 driver board will flash during startup (A->B->C->D, if GPIO PINS are connected correctly), disabled with 'false'
 * 'speed' : PAN speed, allowed values: VERY_SLOW, SLOW, MEDIUM, FAST, VERY_FAST
 * 'angle_max : maxium absolute angle to pan camera to left resp. right side  
 * 'GPIO_PinA (B, C, D)' : GPIO Pin A (B, C, D) of ULN2003 driver board wiring assigment, see check option for verification. More details see [PAN-HW chapter](#PAN-Hardware)
+
+## WAVESHARE options
+* 'sensorRefresh': refresh rate in [t] to update the most recent illuminance state of light sensor
 
 # Running
 - to start from terminal
@@ -221,9 +284,11 @@ but setup up public key authentication is required:
   journalctl --user-unit picam2ctrl
   ```
 
-# PAN-Hardware
+# PAN-Tilt-Hardware
 
+## ULN2003 with 5V step motor(s) 28BYJ-48
 The PAN camera can be realized with a step-motor which can be controlled with 4 GPIO ports of your Raspberry Pi.
+
 You need to buy a [5V step motor 28BYJ-48 with ULN2003 driver board](https://www.amazon.com/s?k=ULN2003+driver+board+28BYJ-48).
  
 Howto setup the hardware wiring you can find e.g.[here](https://diyprojectslab.com/28byj-48-stepper-motor-with-raspberry-pi-pico/) or [here](https://github.com/gavinlyonsrepo/RpiMotorLib/blob/master/Documentation/28BYJ.md).
@@ -232,6 +297,10 @@ Finally we need a construction to pan the connected Raspberry Pi Camera with abo
 
 My 1st prototype is using the [Raspberry Pi 3 case](https://www.raspberrypi.com/products/raspberry-pi-3-case/) with a wide angle camera.
 Here is an [image of the PAN camera prototype](https://github.com/irimitenkan/picam2ctrl/blob/main/images/Mounted_Prototype_1.jpg) and some construction details [Mounting_Prototype_1.jpg](https://github.com/irimitenkan/picam2ctrl/blob/main/images/Mounting_Prototype_1.jpg) & [Mounting_Prototype_2.jpg](https://github.com/irimitenkan/picam2ctrl/blob/main/images/Mounting_Prototype_2.jpg)
+
+## Waveshare's Pan-Tilt Hat
+
+Full support of [Waveshare's Pan-Tilt Hat](https://www.waveshare.com/pan-tilt-hat.htm), see some more details at [Installation](#Installation)
 
 # HASS-Integration
 
@@ -283,7 +352,7 @@ by HASS discovery function via configured MQTT broker.
   * when [timestamp](#Configuration) is enabled the video stream has a time stamp as configured in json configuration
   * when [audio](#Configuration) is enabled & available the video+audio stream is created
 
-## PAN
+## PAN-TILT
 
 - picam2ctrl.\< HOSTNAME \>.Pan-Automation:
   
@@ -293,6 +362,10 @@ by HASS discovery function via configured MQTT broker.
   
   This is a *slider* to pan the camera in range -angle_max to +angle_max manually.
 
+- picam2ctrl.\< HOSTNAME \>.Tilt:
+  
+  This is a *slider* to tilt the camera in range -angle_max to +angle_max manually.
+  It is only available  with WAVESHARE_HAT or ULN2003 & tilt enabled.
   
 ## Motion
 - picam2ctrl.\< HOSTNAME \>.MotionEnabled:
@@ -311,6 +384,12 @@ by HASS discovery function via configured MQTT broker.
   *Restrictions*
   Only one switch resp. camera application (HTTPStream, UDPStream, video capturing to file or image snapshots ) can be enabled.
   Since one application is active, switching on requests for other applications are ignored.
+
+## Lightsensor
+
+- picam2ctrl.\< HOSTNAME \>.Lightsensor:
+
+  This is a illumance *sensor* , which is only avaliable with Waveshare Pan-Tilt Hat
 
 
 # Home Assistant Configuration

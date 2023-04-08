@@ -15,16 +15,24 @@ import signal
 import paho.mqtt.client as mqtt
 
 from enum import Enum
-from utils import Config
+from utils import Config, ThreadEvents
 from threading import Semaphore
 from paho.mqtt.client import connack_string as conn_ack
 from picam2 import ImageCapture, VideoCapture, HTTPStreamCapture
-from picam2 import PanCam, getCameraInfo, UDPStreamCapture
-
+from picam2 import getCameraInfo, UDPStreamCapture
+from pantilt.ULN2003.stepmotors import PanTiltStepMotors
+from pantilt.waveshare.servomotors import PanTiltServoMotors
+from pantilt.waveshare.lightsensor import LightSensor
 hostname = socket.gethostname()
 MQTT_CLIENT_ID = 'picam2ctrl'
 HASS_DISCOVERY_PREFIX = 'homeassistant'
 BASE_TOPIC = f"{MQTT_CLIENT_ID}/{hostname}"
+
+PAN_TILT_HARDWARE={
+    "None":"None",
+    "ULN2003":"STMicroelectronics",
+    "WAVESHARE_HAT":"Waveshare"
+    }
 
 """
 QOS: 0 => fire and forget A -> B
@@ -52,36 +60,45 @@ LOG_LEVEL = {
 class eTPCS(Enum):
     ONLINE_STATE = 1
     
-    SNAPSHOT_STATE = 10
-    VIDEO_STATE = 11
-    HSTREAM_STATE = 12
-    USTREAM_STATE = 13
-    MOTIONENABLE_STATE = 14
-    PAN_STATE = 15
-    PANA_STATE = 16
-    END_STATE = 17
+    START_STATE = 10
+    SNAPSHOT_STATE = 11
+    VIDEO_STATE = 12
+    HSTREAM_STATE = 13
+    USTREAM_STATE = 14
+    MOTIONENABLE_STATE = 15
+    PAN_STATE = 16
+    TILT_STATE = 17
+    PANA_STATE = 18
+    END_STATE = 19
     
-    SNAPSHOT_AVAIL = 20
-    VIDEO_AVAIL = 21
-    HSTREAM_AVAIL = 22
-    USTREAM_AVAIL = 23
-    MOTIONENABLE_AVAIL = 24
-    PAN_AVAIL = 25
-    PANA_AVAIL = 25
-    END_AVAIL = 26
+    START_AVAIL = 20
+    SNAPSHOT_AVAIL = 21
+    VIDEO_AVAIL = 22
+    HSTREAM_AVAIL = 23
+    USTREAM_AVAIL = 24
+    MOTIONENABLE_AVAIL = 25
+    PAN_AVAIL = 26
+    TILT_AVAIL = 27
+    PANA_AVAIL = 28
+    END_AVAIL = 29
     
-    SNAPSHOT_SET = 30
-    VIDEO_SET = 31
-    HSTREAM_SET = 32
-    USTREAM_SET = 33
-    MOTIONENABLE_SET = 34
-    PAN_SET = 35
-    PANA_SET = 36
-    END_SET = 37
+    START_SET = 30
+    SNAPSHOT_SET = 31
+    VIDEO_SET = 32
+    HSTREAM_SET = 33
+    USTREAM_SET = 34
+    MOTIONENABLE_SET = 35
+    PAN_SET = 36
+    TILT_SET = 37
+    PANA_SET = 38
+    END_SET = 39
     
     # BINARY SWITCH
     MOTION_AVAIL = 45
     MOTION_STATE = 46
+    # LIGHT SENSOR
+    LIGHTSENS_AVAIL = 47
+    LIGHTSENS_STATE = 48
     
     HASS_DISCOVERY_SNAPSHOT = 50
     HASS_DISCOVERY_VIDEO = 51
@@ -90,8 +107,13 @@ class eTPCS(Enum):
     HASS_DISCOVERY_MOTIONENABLE = 54
     HASS_DISCOVERY_MOTION = 55
     HASS_DISCOVERY_PAN = 56
-    HASS_DISCOVERY_PANA = 57
+    HASS_DISCOVERY_TILT = 57
+    HASS_DISCOVERY_PANA = 58
+    HASS_DISCOVERY_LIGHTSENS = 59
 
+PANTILT_AVAIL_TPCS = [eTPCS.PAN_AVAIL.value,
+                      eTPCS.TILT_AVAIL.value,
+                      eTPCS.PANA_AVAIL.value]
 
 """ client topics dictionary eTCPS - topic as string """
 TOPICS = {
@@ -121,6 +143,10 @@ TOPICS = {
     eTPCS.PAN_STATE: f"{BASE_TOPIC}/pan/state",
     eTPCS.PAN_SET: f"{BASE_TOPIC}/pan/set",
 
+    eTPCS.TILT_AVAIL: f"{BASE_TOPIC}/tilt/available",
+    eTPCS.TILT_STATE: f"{BASE_TOPIC}/tilt/state",
+    eTPCS.TILT_SET: f"{BASE_TOPIC}/tilt/set",
+
     eTPCS.PANA_AVAIL: f"{BASE_TOPIC}/pan_auto/available",
     eTPCS.PANA_STATE: f"{BASE_TOPIC}/pan_auto/state",
     eTPCS.PANA_SET: f"{BASE_TOPIC}/pan_auto/set",
@@ -129,6 +155,9 @@ TOPICS = {
     eTPCS.MOTION_AVAIL: f"{BASE_TOPIC}/motion/available",
     eTPCS.MOTION_STATE: f"{BASE_TOPIC}/motion",
 
+    eTPCS.LIGHTSENS_AVAIL: f"{BASE_TOPIC}/lightsensor/available",
+    eTPCS.LIGHTSENS_STATE: f"{BASE_TOPIC}/lightsensor",
+
     eTPCS.HASS_DISCOVERY_SNAPSHOT: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/snapshot/config",
     eTPCS.HASS_DISCOVERY_VIDEO: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/video/config",
     eTPCS.HASS_DISCOVERY_HSTREAM: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/httpstream/config",
@@ -136,14 +165,36 @@ TOPICS = {
     eTPCS.HASS_DISCOVERY_MOTIONENABLE: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/motionenabled/config",
     eTPCS.HASS_DISCOVERY_MOTION: f"{HASS_DISCOVERY_PREFIX}/binary_sensor/{hostname}/motion/config",
     eTPCS.HASS_DISCOVERY_PAN: f"{HASS_DISCOVERY_PREFIX}/number/{hostname}/pan/config",
-    eTPCS.HASS_DISCOVERY_PANA: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/pan_auto/config"
+    eTPCS.HASS_DISCOVERY_TILT: f"{HASS_DISCOVERY_PREFIX}/number/{hostname}/tilt/config",
+    eTPCS.HASS_DISCOVERY_PANA: f"{HASS_DISCOVERY_PREFIX}/switch/{hostname}/pan_auto/config",
+    eTPCS.HASS_DISCOVERY_LIGHTSENS: f"{HASS_DISCOVERY_PREFIX}/sensor/{hostname}/lightsensor/config"
 
 }
 
+def checkPanTiltActive(cfg) -> bool:
+    if cfg.PanTilt.active in PAN_TILT_HARDWARE:
+        if "None" == cfg.PanTilt.active:
+            return False
+        else:
+            return True
+    else:
+        logging.error(f"unknown PanTilt settings :{self.cfg.PanTilt.active}")
+        exit(-1)
+
+def checkHasTilt(cfg):
+    if ("ULN2003" == cfg.PanTilt.active and \
+        cfg.PanTilt.ULN2003.Tilt_enabled) or \
+        "WAVESHARE_HAT" == cfg.PanTilt.active:
+        return True
+    return False
+
+def checkHasLightSens(cfg):
+    if "WAVESHARE_HAT" == cfg.PanTilt.active:
+        return True
+    return False
 
 def encode_json(value) -> str:
     return json.dumps(value)
-
 
 class PiCam2Client (mqtt.Client):
     """ MQTT client class """
@@ -161,15 +212,23 @@ class PiCam2Client (mqtt.Client):
         self._motionEnabled = True
         self._child = None
         self._panAngle = 0
-        self._PanCam = None
+        self._tiltAngle = 0
+        self._PanTiltCam = None
         self.pana_active=False
         self.pan_semaphore = Semaphore()
+        self.tilt_semaphore = Semaphore()
         self.manufacturer = "unknown"
         self.swversion = "x.x"
+        
+        if checkHasLightSens(self.cfg):
+            self._lightSensor=LightSensor(self,self.cfg.PanTilt.WAVESHARE_HAT.sensorRefresh)
+        else:
+            self._lightSensor= None
 
         signal.signal(signal.SIGINT, self.daemon_kill)
         signal.signal(signal.SIGTERM, self.daemon_kill)
-
+        self.activeThreads=ThreadEvents()
+        
         info = getCameraInfo()
         logging.debug(str(info))
         if cfg.camera.index + 1 > len(info[0]):
@@ -192,13 +251,17 @@ class PiCam2Client (mqtt.Client):
         logging.info(f"{MQTT_CLIENT_ID} MQTT daemon Goodbye!")
         exit(0)
 
-    def checkNewPanCam(self):
+    def checkNewPanTilt(self):
         """
-        check new PanCam instance required due to multiple Pan-Automation requests
+        check new PanTiltCam instance required due to multiple Pan-Automation requests
         """
-        if self.cfg.PAN.enabled and None==self._PanCam:
-            self._PanCam = PanCam(self, self.cfg)
-        
+        if self.cfg.PanTilt.active == "ULN2003" and \
+            None==self._PanTiltCam:
+            self._PanTiltCam = PanTiltStepMotors(self, self.cfg)
+        elif self.cfg.PanTilt.active == "WAVESHARE_HAT" and \
+            None==self._PanTiltCam:
+            self._PanTiltCam = PanTiltServoMotors(self, self.cfg)
+            
     def on_connect(self, _client, _userdata, _flags, rc):
         """
         on_connect when MQTT CleanSession=False (default) conn_ack will be send from broker
@@ -212,17 +275,31 @@ class PiCam2Client (mqtt.Client):
         self.publish_state_topics()
         time.sleep(1)
         self.subsribe_topics()
+
         
     def publish_avail_topics(self):
         for t in range(eTPCS.SNAPSHOT_AVAIL.value, eTPCS.END_AVAIL.value):
+            if not checkPanTiltActive(self.cfg) and \
+               t in PANTILT_AVAIL_TPCS:
+                continue 
+            elif not checkHasTilt(self.cfg) and t==eTPCS.TILT_AVAIL.value:
+                continue
             self.publish_avail(eTPCS(t))
         self.publish_avail(eTPCS.MOTION_AVAIL, self._motionEnabled)
+
+        if self._lightSensor:
+            self.publish_avail(eTPCS.LIGHTSENS_AVAIL)
+            self._lightSensor.start()
+            self.activeThreads.addThread(self._lightSensor)
 
     def publish_state_topics(self):
         for t in range(eTPCS.SNAPSHOT_STATE.value, eTPCS.END_STATE.value):
             self.publish_state(eTPCS(t))
         self.publish_state(eTPCS.MOTION_STATE,
                            encode_json({"occupancy": False}))
+        #if checkHasLightSens(self.cfg):
+        #    self.publish_state(eTPCS.LIGHTSENS_STATE,
+        #                       encode_json({"illuminance": 0})) #default
 
     def subsribe_topics(self):
         for t in range(eTPCS.SNAPSHOT_SET.value, eTPCS.END_SET.value):
@@ -236,22 +313,31 @@ class PiCam2Client (mqtt.Client):
         if TOPICS[eTPCS.PAN_SET] == message.topic:
             logging.debug(f"Camera PAN request {payload}")
             self._panAngle = int(payload)
-            self.checkNewPanCam()
-            if self._PanCam and not self.pana_active:
+            self.checkNewPanTilt()
+            if self._PanTiltCam and not self.pana_active:
                 self.pan_semaphore.acquire()
-                self._PanCam.rotate_to(self._panAngle)
+                self._PanTiltCam.pan_rotate_to(self._panAngle)
                 self.pan_semaphore.release()
                 self.publish_state(eTPCS.PAN_STATE)  
+        elif TOPICS[eTPCS.TILT_SET] == message.topic:
+            logging.debug(f"Camera TILT request {payload}")
+            self._tiltAngle = int(payload)
+            self.checkNewPanTilt()
+            if self._PanTiltCam and not self.pana_active:
+                self.tilt_semaphore.acquire()
+                self._PanTiltCam.tilt_rotate_to(self._tiltAngle)
+                self.tilt_semaphore.release()
+                self.publish_state(eTPCS.TILT_STATE)  
         elif TOPICS[eTPCS.PANA_SET] == message.topic:
             logging.debug(f"Camera PAN Auto Motion {payload}")
-            self.checkNewPanCam()
-            if self._PanCam:
+            self.checkNewPanTilt()
+            if self._PanTiltCam:
                 if payload == "ON" and not self.pana_active:
                     self.pana_active=True
-                    self._PanCam.start()
+                    self._PanTiltCam.start()
                     self.publish_state(eTPCS.PANA_STATE)
                 elif payload == "OFF" and self.pana_active:
-                    self._PanCam.trigger_stop()
+                    self._PanTiltCam.trigger_stop()
                     #reset of active state by child_down
         
         elif message.topic == TOPICS[eTPCS.MOTIONENABLE_SET]:
@@ -274,24 +360,28 @@ class PiCam2Client (mqtt.Client):
                     self._snapshot = True
                     self.publish_state(eTPCS.SNAPSHOT_STATE)
                     self._child.start()
+                    self.activeThreads.addThread(self._child)
             elif message.topic == TOPICS[eTPCS.VIDEO_SET]:
                 if payload == "ON":
                     self._child = VideoCapture(self, self.cfg, self._motionEnabled)
                     self._video = True
                     self.publish_state(eTPCS.VIDEO_STATE)
                     self._child.start()
+                    self.activeThreads.addThread(self._child)
             elif message.topic == TOPICS[eTPCS.HSTREAM_SET]:
                 if payload == "ON":
                     self._child = HTTPStreamCapture(self, self.cfg, self._motionEnabled)
                     self._hstream = True
                     self.publish_state(eTPCS.HSTREAM_STATE)
                     self._child.start()
+                    self.activeThreads.addThread(self._child)
             elif message.topic == TOPICS[eTPCS.USTREAM_SET]:
                 if payload == "ON":
                     self._child = UDPStreamCapture(self, self.cfg, self._motionEnabled)
                     self._ustream = True
                     self.publish_state(eTPCS.USTREAM_STATE)
                     self._child.start()
+                    self.activeThreads.addThread(self._child)
             else:
                 logging.warning("unhandled payload" + payload)
         else:
@@ -341,14 +431,18 @@ class PiCam2Client (mqtt.Client):
         self.publish_avail(eTPCS.MOTION_AVAIL, False)
         self._online = False
         self.publish_state(eTPCS.ONLINE_STATE)
-        if self._PanCam:
-            self._PanCam.reset_angle()
+        if self._PanTiltCam:
+            self._PanTiltCam.resetAngles()
+        
+        self.activeThreads.stopAllThreads()
+
         self.disconnect()
         self.loop_stop()
 
     def child_down(self, child):
         """ callback function when picam2 threads stop """
         logging.debug("child_down received:" + str(child))
+        self.activeThreads.rmThread(child)
         
         if isinstance(child, ImageCapture):
             self._snapshot = False
@@ -366,12 +460,14 @@ class PiCam2Client (mqtt.Client):
             self._ustream = False
             self.publish_state(eTPCS.USTREAM_STATE)
             self._child = None
-        elif isinstance(child, PanCam):
+        elif isinstance(child, PanTiltServoMotors) or \
+             isinstance(child, PanTiltStepMotors) :
             self.pana_active=False
-            self._panAngle=child.get_angle()
+            self._panAngle=child.get_panAngle()
+            self._tiltAngle=child.get_tiltAngle()
             self.publish_state(eTPCS.PANA_STATE)
             self.publish_state(eTPCS.PAN_STATE)
-            self._PanCam=None # delete old reference
+            self._PanTiltCam=None # delete old reference
 
     def motion_detected(self):
         """ callback function when motion has been detected """
@@ -383,10 +479,16 @@ class PiCam2Client (mqtt.Client):
                            encode_json({"occupancy": False}))
     
     def pan_update(self,angle:int):
-        """ callback function when PanCam has completed """
+        """ callback function when PanTiltCam has completed """
         logging.debug(f"callback pan_update:{angle}°")
         self._panAngle=angle
         self.publish_state(eTPCS.PAN_STATE)
+
+    def light_update(self,lux:int):
+        """ callback function when light sensor update available """
+        logging.debug(f"callback lux_update:{lux}")
+        self.publish_state(eTPCS.LIGHTSENS_STATE,
+                               encode_json({"illuminance": lux}))
 
     def publish_avail(self, msg: eTPCS, avail=True):
         """ publish avalibale topics """
@@ -394,16 +496,15 @@ class PiCam2Client (mqtt.Client):
         payload = None
         if msg.value >= eTPCS.SNAPSHOT_AVAIL.value or \
            msg.value < eTPCS.END_AVAIL.value or \
-           msg == eTPCS.MOTION_AVAIL:
-             
+           msg == eTPCS.MOTION_AVAIL or \
+           msg == eTPCS.LIGHTSENS_AVAIL:
             payload = "online" if avail else "offline"
-
+            
         if payload:
             self.publish(TOPICS[msg], payload, retain)
             logging.debug(f"publish {str(msg)}:{payload}")
         else:
             logging.warning(f"unhandled publish avail message:{TOPICS[msg]}")
-
 
     def publish_state(self, msg: eTPCS, payload=None):
         """ publish state topics """
@@ -425,6 +526,9 @@ class PiCam2Client (mqtt.Client):
             payload = "ON" if self.pana_active else "OFF"
         elif eTPCS.PAN_STATE == msg:
             payload = self._panAngle
+        elif eTPCS.TILT_STATE == msg:
+            payload = self._tiltAngle
+
 
         if payload is not None:
             self.publish(topic, payload, retain)
@@ -546,7 +650,21 @@ class PiCam2Client (mqtt.Client):
         }
         self.publish(TOPICS[eTPCS.HASS_DISCOVERY_MOTION],
                      payload=encode_json(config_motion), retain=True)
-    
+        
+        if checkPanTiltActive(self.cfg):
+            self.publish_hass_pantilt()
+            
+
+    def publish_hass_pantilt(self):
+        ver="0.2.0"
+        dev = {
+                "identifiers":[f"{MQTT_CLIENT_ID}_{hostname}"],
+                "manufacturer": PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
+                "model": self.cfg.PanTilt.active,
+                "sw_version": ver,
+                "name": f"{MQTT_CLIENT_ID}.{hostname}.PanTilt"
+            }
+
         config_pan = {
             "device": dev,
             "availability_topic": TOPICS[eTPCS.PAN_AVAIL],
@@ -557,8 +675,8 @@ class PiCam2Client (mqtt.Client):
             "command_template": "{{ value }}",
             "command_topic": TOPICS[eTPCS.PAN_SET],
             "unit_of_measurement":"°",
-            "min":-self.cfg.PAN.angle_max,
-            "max":self.cfg.PAN.angle_max,
+            "min":-self.cfg.PanTilt.Pan_angle_max,
+            "max":self.cfg.PanTilt.Pan_angle_max,
             "step":1,
             "mode": "slider",
             "name": f"{MQTT_CLIENT_ID}.{hostname}.Pan",
@@ -582,6 +700,54 @@ class PiCam2Client (mqtt.Client):
         self.publish(TOPICS[eTPCS.HASS_DISCOVERY_PANA],
                      payload=encode_json(config_pana), retain=True)
 
+        if checkHasTilt(self.cfg):
+            config_tilt = {
+                "device": dev,
+                "availability_topic": TOPICS[eTPCS.TILT_AVAIL],
+                "device_class": "distance",
+                "icon": "mdi:pan-vertical",
+                "unique_id": f"{MQTT_CLIENT_ID}/{hostname}/tilt",
+                "state_topic": TOPICS[eTPCS.TILT_STATE],
+                "command_template": "{{ value }}",
+                "command_topic": TOPICS[eTPCS.TILT_SET],
+                "unit_of_measurement":"°",
+                "min":-self.cfg.PanTilt.Tilt_angle_max,
+                "max":self.cfg.PanTilt.Tilt_angle_max,
+                "step":1,
+                "mode": "slider",
+                "name": f"{MQTT_CLIENT_ID}.{hostname}.Tilt",
+                "value_template": "{{ value }}"
+            }
+            self.publish(TOPICS[eTPCS.HASS_DISCOVERY_TILT],
+                         payload=encode_json(config_tilt), retain=True)
+
+        if checkHasLightSens(self.cfg):
+
+            dev = {
+                "identifiers":[f"{MQTT_CLIENT_ID}_{hostname}"],
+                "manufacturer": PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
+                "model": "TSL2591",
+                "sw_version": ver,
+                "name": f"{MQTT_CLIENT_ID}.{hostname}.Lightsensor"
+            }
+
+            config_sens = {
+                "device": dev,
+                "availability_topic": TOPICS[eTPCS.LIGHTSENS_AVAIL],
+                "device_class": "illuminance",
+                "icon": "mdi:brightness-5",
+                "json_attributes_topic": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
+                #"payload_off": False,
+                #"payload_on": True,
+                "unique_id": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
+                "state_topic": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
+                "name": f"{MQTT_CLIENT_ID}.{hostname}.Lightsensor",
+                "value_template": "{{ value_json.illuminance }}"
+            }
+            self.publish(TOPICS[eTPCS.HASS_DISCOVERY_LIGHTSENS],
+                         payload=encode_json(config_sens), retain=True)
+        
+    
     def startup_client(self):
         """
         Start the MQTT client
@@ -646,5 +812,6 @@ def startClient(cfg: Config):
     logging.basicConfig(level=LOG_LEVEL[cfg.LogLevel],
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         datefmt='%H:%M:%S')
+    checkPanTiltActive(cfg)
     client = PiCam2Client(cfg)
     client.startup_client()
