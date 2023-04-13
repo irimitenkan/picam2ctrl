@@ -213,22 +213,31 @@ class PiCam2Client (mqtt.Client):
         self._child = None
         self._panAngle = 0
         self._tiltAngle = 0
-        self._PanTiltCam = None
-        self.pana_active=False
         self.pan_semaphore = Semaphore()
         self.tilt_semaphore = Semaphore()
         self.manufacturer = "unknown"
         self.swversion = "x.x"
-        
+        self.activeThreads=ThreadEvents()
+
         if checkHasLightSens(self.cfg):
             self._lightSensor=LightSensor(self,self.cfg.PanTilt.WAVESHARE_HAT.sensorRefresh)
         else:
             self._lightSensor= None
 
+        if self.cfg.PanTilt.active == "ULN2003":
+            self._PanTiltCam = PanTiltStepMotors(self, self.cfg)
+        elif self.cfg.PanTilt.active == "WAVESHARE_HAT":
+            self._PanTiltCam = PanTiltServoMotors(self, self.cfg)
+        else:
+            logging.debug("*** NO PanTilt Hardware configured")
+            self._PanTiltCam = None
+
+        if self._PanTiltCam:
+            self.activeThreads.addThread(self._PanTiltCam)
+
         signal.signal(signal.SIGINT, self.daemon_kill)
         signal.signal(signal.SIGTERM, self.daemon_kill)
-        self.activeThreads=ThreadEvents()
-        
+
         info = getCameraInfo()
         logging.debug(str(info))
         if cfg.camera.index + 1 > len(info[0]):
@@ -250,17 +259,6 @@ class PiCam2Client (mqtt.Client):
         self.client_down()
         logging.info(f"{MQTT_CLIENT_ID} MQTT daemon Goodbye!")
         exit(0)
-
-    def checkNewPanTilt(self):
-        """
-        check new PanTiltCam instance required due to multiple Pan-Automation requests
-        """
-        if self.cfg.PanTilt.active == "ULN2003" and \
-            None==self._PanTiltCam:
-            self._PanTiltCam = PanTiltStepMotors(self, self.cfg)
-        elif self.cfg.PanTilt.active == "WAVESHARE_HAT" and \
-            None==self._PanTiltCam:
-            self._PanTiltCam = PanTiltServoMotors(self, self.cfg)
             
     def on_connect(self, _client, _userdata, _flags, rc):
         """
@@ -289,7 +287,6 @@ class PiCam2Client (mqtt.Client):
 
         if self._lightSensor:
             self.publish_avail(eTPCS.LIGHTSENS_AVAIL)
-            self._lightSensor.start()
             self.activeThreads.addThread(self._lightSensor)
 
     def publish_state_topics(self):
@@ -297,9 +294,6 @@ class PiCam2Client (mqtt.Client):
             self.publish_state(eTPCS(t))
         self.publish_state(eTPCS.MOTION_STATE,
                            encode_json({"occupancy": False}))
-        #if checkHasLightSens(self.cfg):
-        #    self.publish_state(eTPCS.LIGHTSENS_STATE,
-        #                       encode_json({"illuminance": 0})) #default
 
     def subsribe_topics(self):
         for t in range(eTPCS.SNAPSHOT_SET.value, eTPCS.END_SET.value):
@@ -309,37 +303,32 @@ class PiCam2Client (mqtt.Client):
         logging.debug(
             f" Received message  {str(message.payload) } on topic {message.topic} with QoS {str(message.qos)}")
         payload = str(message.payload.decode("utf-8"))
-        
+
         if TOPICS[eTPCS.PAN_SET] == message.topic:
             logging.debug(f"Camera PAN request {payload}")
             self._panAngle = int(payload)
-            self.checkNewPanTilt()
-            if self._PanTiltCam and not self.pana_active:
+            if self._PanTiltCam and not self._PanTiltCam.get_Pana_active():
                 self.pan_semaphore.acquire()
                 self._PanTiltCam.pan_rotate_to(self._panAngle)
                 self.pan_semaphore.release()
-                self.publish_state(eTPCS.PAN_STATE)  
         elif TOPICS[eTPCS.TILT_SET] == message.topic:
             logging.debug(f"Camera TILT request {payload}")
             self._tiltAngle = int(payload)
-            self.checkNewPanTilt()
-            if self._PanTiltCam and not self.pana_active:
+            if self._PanTiltCam:
                 self.tilt_semaphore.acquire()
                 self._PanTiltCam.tilt_rotate_to(self._tiltAngle)
                 self.tilt_semaphore.release()
-                self.publish_state(eTPCS.TILT_STATE)  
         elif TOPICS[eTPCS.PANA_SET] == message.topic:
             logging.debug(f"Camera PAN Auto Motion {payload}")
-            self.checkNewPanTilt()
             if self._PanTiltCam:
-                if payload == "ON" and not self.pana_active:
-                    self.pana_active=True
-                    self._PanTiltCam.start()
-                    self.publish_state(eTPCS.PANA_STATE)
-                elif payload == "OFF" and self.pana_active:
-                    self._PanTiltCam.trigger_stop()
-                    #reset of active state by child_down
-        
+                if payload == "ON" and not self._PanTiltCam.get_Pana_active():
+                    active=True
+                elif payload == "OFF" and self._PanTiltCam.get_Pana_active():
+                    active=False
+
+                self._PanTiltCam.pan_rotate_auto(active)
+                self.publish_state(eTPCS.PANA_STATE)
+
         elif message.topic == TOPICS[eTPCS.MOTIONENABLE_SET]:
             if payload == "ON" and not self._child:
                 #ignore since child app is active 
@@ -352,35 +341,31 @@ class PiCam2Client (mqtt.Client):
                 self.publish_avail(eTPCS.MOTION_AVAIL, False)
                 if self._child:  # # already active -> disable
                     self._child.trigger_stop()
-            
+
         elif not self._child:
             if message.topic == TOPICS[eTPCS.SNAPSHOT_SET]:
                 if payload == "ON":
                     self._child = ImageCapture(self, self.cfg, self._motionEnabled)
                     self._snapshot = True
                     self.publish_state(eTPCS.SNAPSHOT_STATE)
-                    self._child.start()
                     self.activeThreads.addThread(self._child)
             elif message.topic == TOPICS[eTPCS.VIDEO_SET]:
                 if payload == "ON":
                     self._child = VideoCapture(self, self.cfg, self._motionEnabled)
                     self._video = True
                     self.publish_state(eTPCS.VIDEO_STATE)
-                    self._child.start()
                     self.activeThreads.addThread(self._child)
             elif message.topic == TOPICS[eTPCS.HSTREAM_SET]:
                 if payload == "ON":
                     self._child = HTTPStreamCapture(self, self.cfg, self._motionEnabled)
                     self._hstream = True
                     self.publish_state(eTPCS.HSTREAM_STATE)
-                    self._child.start()
                     self.activeThreads.addThread(self._child)
             elif message.topic == TOPICS[eTPCS.USTREAM_SET]:
                 if payload == "ON":
                     self._child = UDPStreamCapture(self, self.cfg, self._motionEnabled)
                     self._ustream = True
                     self.publish_state(eTPCS.USTREAM_STATE)
-                    self._child.start()
                     self.activeThreads.addThread(self._child)
             else:
                 logging.warning("unhandled payload" + payload)
@@ -425,15 +410,16 @@ class PiCam2Client (mqtt.Client):
         """
         clean up everything when keyboard CTRL-C or daemon kill request occurs
         """
+        if self._PanTiltCam:
+            self._PanTiltCam.resetAngles()
+
         for t in range(eTPCS.SNAPSHOT_AVAIL.value, eTPCS.END_AVAIL.value):
             self.publish_avail(eTPCS(t), False)
         
         self.publish_avail(eTPCS.MOTION_AVAIL, False)
         self._online = False
         self.publish_state(eTPCS.ONLINE_STATE)
-        if self._PanTiltCam:
-            self._PanTiltCam.resetAngles()
-        
+
         self.activeThreads.stopAllThreads()
 
         self.disconnect()
@@ -443,7 +429,7 @@ class PiCam2Client (mqtt.Client):
         """ callback function when picam2 threads stop """
         logging.debug("child_down received:" + str(child))
         self.activeThreads.rmThread(child)
-        
+
         if isinstance(child, ImageCapture):
             self._snapshot = False
             self.publish_state(eTPCS.SNAPSHOT_STATE)
@@ -462,11 +448,6 @@ class PiCam2Client (mqtt.Client):
             self._child = None
         elif isinstance(child, PanTiltServoMotors) or \
              isinstance(child, PanTiltStepMotors) :
-            self.pana_active=False
-            self._panAngle=child.get_panAngle()
-            self._tiltAngle=child.get_tiltAngle()
-            self.publish_state(eTPCS.PANA_STATE)
-            self.publish_state(eTPCS.PAN_STATE)
             self._PanTiltCam=None # delete old reference
 
     def motion_detected(self):
@@ -477,12 +458,18 @@ class PiCam2Client (mqtt.Client):
         time.sleep(0.5)
         self.publish_state(eTPCS.MOTION_STATE,
                            encode_json({"occupancy": False}))
-    
+
     def pan_update(self,angle:int):
-        """ callback function when PanTiltCam has completed """
+        """ callback function to PanTiltCam pan angle """
         logging.debug(f"callback pan_update:{angle}°")
         self._panAngle=angle
         self.publish_state(eTPCS.PAN_STATE)
+
+    def tilt_update(self,angle:int):
+        """ callback function for updating PanTiltCam tilt angle """
+        logging.debug(f"callback tilt_update:{angle}°")
+        self._tiltAngle=angle
+        self.publish_state(eTPCS.TILT_STATE)
 
     def light_update(self,lux:int):
         """ callback function when light sensor update available """
@@ -499,7 +486,7 @@ class PiCam2Client (mqtt.Client):
            msg == eTPCS.MOTION_AVAIL or \
            msg == eTPCS.LIGHTSENS_AVAIL:
             payload = "online" if avail else "offline"
-            
+
         if payload:
             self.publish(TOPICS[msg], payload, retain)
             logging.debug(f"publish {str(msg)}:{payload}")
@@ -523,19 +510,17 @@ class PiCam2Client (mqtt.Client):
         elif eTPCS.MOTIONENABLE_STATE == msg:
             payload = "ON" if self._motionEnabled else "OFF"
         elif eTPCS.PANA_STATE == msg:
-            payload = "ON" if self.pana_active else "OFF"
+            payload = "ON" if self._PanTiltCam.get_Pana_active() else "OFF"
         elif eTPCS.PAN_STATE == msg:
             payload = self._panAngle
         elif eTPCS.TILT_STATE == msg:
             payload = self._tiltAngle
-
 
         if payload is not None:
             self.publish(topic, payload, retain)
             logging.debug(f"publish {str(msg)}:{payload}")
         else:
             logging.warning(f"unhandled publish state message:{TOPICS[msg]}")
-
 
     def publish_hass(self):
         """ 
@@ -653,7 +638,7 @@ class PiCam2Client (mqtt.Client):
         
         if checkPanTiltActive(self.cfg):
             self.publish_hass_pantilt()
-            
+
 
     def publish_hass_pantilt(self):
         ver="0.2.0"
@@ -722,7 +707,6 @@ class PiCam2Client (mqtt.Client):
                          payload=encode_json(config_tilt), retain=True)
 
         if checkHasLightSens(self.cfg):
-
             dev = {
                 "identifiers":[f"{MQTT_CLIENT_ID}_{hostname}"],
                 "manufacturer": PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
@@ -746,8 +730,7 @@ class PiCam2Client (mqtt.Client):
             }
             self.publish(TOPICS[eTPCS.HASS_DISCOVERY_LIGHTSENS],
                          payload=encode_json(config_sens), retain=True)
-        
-    
+
     def startup_client(self):
         """
         Start the MQTT client
@@ -801,7 +784,6 @@ class PiCam2Client (mqtt.Client):
                 self.disconnect()
                 self.loop_stop()
                 exit(-1)
-
 
 
 def startClient(cfg: Config):

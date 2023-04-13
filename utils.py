@@ -78,10 +78,14 @@ class ThreadEvent(threading.Thread):
         self._stopEvent.set()
 
 class ThreadEvents(ThreadEvent):
+    """
+    Simple Multi Thread Events Handler
+    """
     def __init__(self):
         self.threads=list()
 
     def addThread (self, newThread: ThreadEvent):
+        newThread.start()
         #self.threads.update({tId, newThread})
         self.threads.append(newThread)
         
