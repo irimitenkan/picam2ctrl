@@ -1,5 +1,16 @@
 # Change Log
 
+## v0.2.1
+
+### Added
+ * consider tilt/pan flip due to camera hflip/vflip
+
+### Changed
+ * thread & events reworked
+ * pan auto None ref bugfix
+ * to min/max pan angle
+ * to high/low tilt angle
+
 ## v0.2.0
 
 ### Added

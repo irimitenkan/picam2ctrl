@@ -65,16 +65,22 @@
 
   "PanTilt":{
      "active":"None",
-	 "Tilt_angle_max" :50,
-	 "Pan_angle_max" : 70,
 	 "speed":"MEDIUM",
-	
+      "Pan":{
+          "angle_max":80,
+          "angle_min":-80,
+          "flip":true
+      },
+      "Tilt":{
+          "angle_low":-26,
+          "angle_high":60,
+          "flip":false
+      },
 	"None":{
 		"//":"PanTilt is disabled"
 		},
 	
   	"ULN2003":{
-		 
 	  	"Pan_enabled":true,
 	  	"Tilt_enabled":false,
 	  	"check":true,

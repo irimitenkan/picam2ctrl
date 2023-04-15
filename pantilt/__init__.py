@@ -3,7 +3,7 @@ from threading import Event
 import logging
 
 class PanTilt(ThreadEvent):
-    def __init__(self, parent=None, max_angle=180, offset=0):
+    def __init__(self, parent=None, max_angles=(-180,180), offset=0):
         super().__init__(parent)
         self._rotEvent = Event()
 
@@ -20,7 +20,8 @@ class PanTilt(ThreadEvent):
 
         self.Offset=offset
         #maximum abs(angle)
-        self.max_angle=max_angle
+        self.min_angle=max_angles[0]
+        self.max_angle=max_angles[1]
 
     def _worker_(self):
         """
@@ -34,7 +35,7 @@ class PanTilt(ThreadEvent):
                 logging.debug("PanTiltServoMotors rotEvent autopan")
                 self._panDest=self.max_angle
                 if self.get_panAngle()>0:
-                    self._panDest=-self._panDest
+                    self._panDest=self.min_angle
 
                 self._pan_rotate_to_()
                 self._parent.pan_update(self.get_panAngle())

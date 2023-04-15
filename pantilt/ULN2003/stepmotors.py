@@ -16,7 +16,7 @@ class PanTiltStepMotors(PanTilt):
         return "PanTiltStepMotors" 
 
     def __init__(self,parent: ThreadEvent, cfg: Config):
-        super().__init__(parent,cfg.PanTilt.Pan_angle_max)
+        super().__init__(parent,(cfg.PanTilt.Pan.angle_min,cfg.PanTilt.Pan.angle_max))
 
         # PAN - Motor
         if cfg.PanTilt.ULN2003.Pan_enabled:
@@ -24,7 +24,7 @@ class PanTiltStepMotors(PanTilt):
                                      cfg.PanTilt.ULN2003.Pan_GPIO_PinB,
                                      cfg.PanTilt.ULN2003.Pan_GPIO_PinC,
                                      cfg.PanTilt.ULN2003.Pan_GPIO_PinD,
-                                     cfg.PanTilt.Pan_angle_max,
+                                     cfg.PanTilt.Pan.angle_max,
                                      cfg.PanTilt.speed)
             if cfg.PanTilt.ULN2003.check:
                 self.PanMotor.testPins()
@@ -36,14 +36,13 @@ class PanTiltStepMotors(PanTilt):
                                      cfg.PanTilt.ULN2003.Tilt_GPIO_PinB,
                                      cfg.PanTilt.ULN2003.Tilt_GPIO_PinC,
                                      cfg.PanTilt.ULN2003.Tilt_GPIO_PinD,
-                                     cfg.PanTilt.Tilt_angle_max,
+                                     cfg.PanTilt.Tilt.angle_high,
                                      cfg.PanTilt.speed)
             if cfg.PanTilt.ULN2003.check:
                 self.TiltMotor.testPins()
         else:
             self.TiltMotor=None
 
-        #self.max_degree=cfg.PanTilt.Pan_angle_max
         self.triggered=False
     
     def _pan_rotate_to_(self):

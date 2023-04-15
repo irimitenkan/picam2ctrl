@@ -196,6 +196,7 @@ def checkHasLightSens(cfg):
 def encode_json(value) -> str:
     return json.dumps(value)
 
+
 class PiCam2Client (mqtt.Client):
     """ MQTT client class """
 
@@ -260,6 +261,19 @@ class PiCam2Client (mqtt.Client):
         logging.info(f"{MQTT_CLIENT_ID} MQTT daemon Goodbye!")
         exit(0)
             
+
+    def gettiltAngle(self,angle:int) -> int:
+        fl=1
+        if self.cfg.PanTilt.Tilt.flip:
+            fl=-1
+        return angle*fl
+
+    def getpanAngle(self,angle) -> int:
+        fl=1
+        if self.cfg.PanTilt.Pan.flip:
+            fl=-1
+        return angle*fl
+
     def on_connect(self, _client, _userdata, _flags, rc):
         """
         on_connect when MQTT CleanSession=False (default) conn_ack will be send from broker
@@ -306,14 +320,14 @@ class PiCam2Client (mqtt.Client):
 
         if TOPICS[eTPCS.PAN_SET] == message.topic:
             logging.debug(f"Camera PAN request {payload}")
-            self._panAngle = int(payload)
+            self._panAngle = self.getpanAngle(int(payload))
             if self._PanTiltCam and not self._PanTiltCam.get_Pana_active():
                 self.pan_semaphore.acquire()
                 self._PanTiltCam.pan_rotate_to(self._panAngle)
                 self.pan_semaphore.release()
         elif TOPICS[eTPCS.TILT_SET] == message.topic:
             logging.debug(f"Camera TILT request {payload}")
-            self._tiltAngle = int(payload)
+            self._tiltAngle=self.gettiltAngle(int(payload))
             if self._PanTiltCam:
                 self.tilt_semaphore.acquire()
                 self._PanTiltCam.tilt_rotate_to(self._tiltAngle)
@@ -462,13 +476,13 @@ class PiCam2Client (mqtt.Client):
     def pan_update(self,angle:int):
         """ callback function to PanTiltCam pan angle """
         logging.debug(f"callback pan_update:{angle}°")
-        self._panAngle=angle
+        self._panAngle = self.getpanAngle(angle)
         self.publish_state(eTPCS.PAN_STATE)
 
     def tilt_update(self,angle:int):
         """ callback function for updating PanTiltCam tilt angle """
         logging.debug(f"callback tilt_update:{angle}°")
-        self._tiltAngle=angle
+        self._tiltAngle = self.gettiltAngle(angle)
         self.publish_state(eTPCS.TILT_STATE)
 
     def light_update(self,lux:int):
@@ -509,7 +523,7 @@ class PiCam2Client (mqtt.Client):
             payload = "ON" if self._ustream else "OFF"
         elif eTPCS.MOTIONENABLE_STATE == msg:
             payload = "ON" if self._motionEnabled else "OFF"
-        elif eTPCS.PANA_STATE == msg:
+        elif eTPCS.PANA_STATE == msg and self._PanTiltCam:
             payload = "ON" if self._PanTiltCam.get_Pana_active() else "OFF"
         elif eTPCS.PAN_STATE == msg:
             payload = self._panAngle
@@ -660,8 +674,8 @@ class PiCam2Client (mqtt.Client):
             "command_template": "{{ value }}",
             "command_topic": TOPICS[eTPCS.PAN_SET],
             "unit_of_measurement":"°",
-            "min":-self.cfg.PanTilt.Pan_angle_max,
-            "max":self.cfg.PanTilt.Pan_angle_max,
+            "min":self.cfg.PanTilt.Pan.angle_max,
+            "max":self.cfg.PanTilt.Pan.angle_min,
             "step":1,
             "mode": "slider",
             "name": f"{MQTT_CLIENT_ID}.{hostname}.Pan",
@@ -696,8 +710,8 @@ class PiCam2Client (mqtt.Client):
                 "command_template": "{{ value }}",
                 "command_topic": TOPICS[eTPCS.TILT_SET],
                 "unit_of_measurement":"°",
-                "min":-self.cfg.PanTilt.Tilt_angle_max,
-                "max":self.cfg.PanTilt.Tilt_angle_max,
+                "min":self.cfg.PanTilt.Tilt.angle_low,
+                "max":self.cfg.PanTilt.Tilt.angle_high,
                 "step":1,
                 "mode": "slider",
                 "name": f"{MQTT_CLIENT_ID}.{hostname}.Tilt",

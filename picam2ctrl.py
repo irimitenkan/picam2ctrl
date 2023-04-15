@@ -21,8 +21,8 @@ from utils import Config
 from picamclient import startClient
 
 __all__ = []
-__version__ = "0.2.0"
-__updated__ = '2023-04-08'
+__version__ = "0.2.1"
+__updated__ = '2023-04-15'
 
 def main(argv=None):
     '''Command line options.'''
@@ -39,7 +39,7 @@ def main(argv=None):
         version=program_version_string,
         epilog="your Picamera2 MQTT client for Home Assistant",
         description=program_license)
-    
+
     parser.add_option(
         "-c",
         "--cfg",

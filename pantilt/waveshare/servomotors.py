@@ -35,7 +35,7 @@ class PanTiltServoMotors(PanTilt):
         return "PanTiltServoMotors" 
 
     def __init__(self,parent: ThreadEvent, cfg: Config, offset=SERVO_OFFSET):
-        super().__init__(parent,cfg.PanTilt.Pan_angle_max,offset)
+        super().__init__(parent,(cfg.PanTilt.Pan.angle_min,cfg.PanTilt.Pan.angle_max),offset)
         logging.debug("init PanTiltServoMotors")
 
         self.servos = Servos()
