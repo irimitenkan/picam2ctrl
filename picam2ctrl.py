@@ -21,8 +21,8 @@ from utils import Config
 from picamclient import startClient
 
 __all__ = []
-__version__ = "0.2.1"
-__updated__ = '2023-04-15'
+__version__ = "0.2.2"
+__updated__ = '2023-04-16'
 
 def main(argv=None):
     '''Command line options.'''

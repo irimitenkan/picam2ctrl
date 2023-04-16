@@ -69,7 +69,7 @@ Hence:
 
 * only connect Pan & Tilt servos to hat
 * connect hat with Raspberry Pi
-* execute servoTest  
+* execute servoTest
 
 
   ```
@@ -84,7 +84,7 @@ Hence:
   ```
   "PanTilt":{
      "active":"WAVESHARE_HAT",
-     
+
   ```
 
 
@@ -161,38 +161,49 @@ Example config.json
       "user" : "<SSH USERNAME>",
       "dest_path" : "/opt/homeassistant/config/tmp"
     },
-    
-  "PanTilt":{
-     "active":"WAVESHARE_HAT",
-	 "Pan_angle_max" : 80,
-	 "Tilt_angle_max" :50,
-	 "speed":"MEDIUM",
-	
-	"None":{
-		"//":"PanTilt is disabled"
-		},
 
-  	"ULN2003":{
-		 
-	  	"Pan_enabled":true,
-	  	"Tilt_enabled":false,
-	  	"check":true,
-		"Pan_GPIO_PinA": 27,
-		"Pan_GPIO_PinB": 22,
-		"Pan_GPIO_PinC": 23,
-		"Pan_GPIO_PinD": 24,
-	
-		"Tilt_GPIO_PinA": 13,
-		"Tilt_GPIO_PinB": 15,
-		"Tilt_GPIO_PinC": 16,
-		"Tilt_GPIO_PinD": 18
-	},
-	
-	"WAVESHARE_HAT":{
-		"sensorRefresh":60
-			  }
+  "PanTilt":{
+	 "active":"WAVESHARE_HAT",
+	 "speed":"SLOW",
+	  "Pan":{
+	      "angle_max":80,
+	      "angle_min":-80,
+	      "flip":true
+	  },
+	  "Tilt":{
+	      "angle_low":-26,
+	      "angle_high":60,
+	      "flip":true
+	  },
+
+
+     "None":{
+            "//":"PanTilt is disabled"
+            },
+
+     "ULN2003":{
+            "Pan_enabled":true,
+            "Tilt_enabled":true,
+            "check":true,
+            "Pan_GPIO_PinA": 27,
+            "Pan_GPIO_PinB": 22,
+            "Pan_GPIO_PinC": 23,
+            "Pan_GPIO_PinD": 24,
+
+            "Tilt_GPIO_PinA": 13,
+            "Tilt_GPIO_PinB": 15,
+            "Tilt_GPIO_PinC": 16,
+            "Tilt_GPIO_PinD": 18
+    },
+
+    "WAVESHARE_HAT":{
+        "sensorRefresh":60
+            }
 
   }
+
+
+}
 
   ```
 
@@ -201,7 +212,7 @@ Example config.json
 * "hflip", vflip: 0/1 - to rotate camera output
 * "sensitivity": 10 - used for motion detection,for manual calibration, set LogLevel to "DEBUG" and check output during detection.
 * "tuning": "path to file" - special tuning e.g. for noir camera
-	
+
 ## timestamp options
 * "format" = "code string", see documention of [strftime options](https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior)
 * "font" : allowed 'HERSHEY' string values see module picam2.FONTS resp. [here](https://docs.opencv.org/4.x/d6/d6e/group__imgproc__draw.html)
@@ -226,7 +237,7 @@ but setup up public key authentication is required:
 ## PanTilt options
 * "check" : when 'true' the LEDs on ULN2003 driver board will flash during startup (A->B->C->D, if GPIO PINS are connected correctly), disabled with 'false'
 * 'speed' : PAN speed, allowed values: VERY_SLOW, SLOW, MEDIUM, FAST, VERY_FAST
-* 'angle_max : maxium absolute angle to pan camera to left resp. right side  
+* 'angle_max : maxium absolute angle to pan camera to left resp. right side
 * 'GPIO_PinA (B, C, D)' : GPIO Pin A (B, C, D) of ULN2003 driver board wiring assigment, see check option for verification. More details see [PAN-HW chapter](#PAN-Hardware)
 
 ## WAVESHARE options
@@ -290,7 +301,7 @@ but setup up public key authentication is required:
 The PAN camera can be realized with a step-motor which can be controlled with 4 GPIO ports of your Raspberry Pi.
 
 You need to buy a [5V step motor 28BYJ-48 with ULN2003 driver board](https://www.amazon.com/s?k=ULN2003+driver+board+28BYJ-48).
- 
+
 Howto setup the hardware wiring you can find e.g.[here](https://diyprojectslab.com/28byj-48-stepper-motor-with-raspberry-pi-pico/) or [here](https://github.com/gavinlyonsrepo/RpiMotorLib/blob/master/Documentation/28BYJ.md).
 
 Finally we need a construction to pan the connected Raspberry Pi Camera with above mentioned step-motor. As solution a Raspberry Pi housing with camera integration support is recommended: we pan the complete Raspberry Pi case.
@@ -311,7 +322,7 @@ by HASS discovery function via configured MQTT broker.
 * When picam2ctrl is started the very first time, all entities do not enter "available state"
  (for some unknown reason, it seems HASS discovery keeps in pending state ?)
 * workaround: just stop  and restart picam2ctrl again and restart Home-Assistant, too. Problem disappears after 2nd start. This is reproducible when I delete all picam2ctrl MQTT messages with [MQTT-Explorer](http://mqtt-explorer.com/).
-  
+
 
 ## available Home Assistant entities
 
@@ -355,18 +366,18 @@ by HASS discovery function via configured MQTT broker.
 ## PAN-TILT
 
 - picam2ctrl.\< HOSTNAME \>.Pan-Automation:
-  
+
   This is a *switch* to enable/disable to pan the camera in range from -angle_max to +angle_max automatically.
 
 - picam2ctrl.\< HOSTNAME \>.Pan:
-  
+
   This is a *slider* to pan the camera in range -angle_max to +angle_max manually.
 
 - picam2ctrl.\< HOSTNAME \>.Tilt:
-  
+
   This is a *slider* to tilt the camera in range -angle_max to +angle_max manually.
   It is only available  with WAVESHARE_HAT or ULN2003 & tilt enabled.
-  
+
 ## Motion
 - picam2ctrl.\< HOSTNAME \>.MotionEnabled:
 

@@ -1,5 +1,10 @@
 # Change Log
 
+## v0.2.2
+
+### Changed
+ * min/max pan type bugfix
+
 ## v0.2.1
 
 ### Added
@@ -16,12 +21,12 @@
 ### Added
  * general tilt support
  * Waveshare's Pan-Tilt Hat
- * Waveshare's lightsensor 
+ * Waveshare's lightsensor
 
 ### Changed
  * pan redesign
- 
-## v0.1.1 
+
+## v0.1.1
 
 ### Added
  * pan cam support
@@ -30,5 +35,5 @@
  * clean up ThreadEvents
  * addition wait time during motion detection
  * motion enable switch dependencies changed (child app must not be active)
- 
+
 ## v0.1.0 first release
