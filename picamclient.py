@@ -735,8 +735,8 @@ class PiCam2Client (mqtt.Client):
                 "device_class": "illuminance",
                 "icon": "mdi:brightness-5",
                 "json_attributes_topic": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
-                #"payload_off": False,
-                #"payload_on": True,
+                "state_class": "measurement",
+                "unit_of_measurement":"lux",
                 "unique_id": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
                 "state_topic": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
                 "name": f"{MQTT_CLIENT_ID}.{hostname}.Lightsensor",
@@ -780,7 +780,7 @@ class PiCam2Client (mqtt.Client):
                     logging.error(
                         f"Could not connect to MQTT Broker {self.cfg.MQTTBroker.host} exit")
                     exit(-1)
-                time.sleep(3)
+                time.sleep(2)
 
         # main MQTT client loop
         while True:
