@@ -178,7 +178,7 @@ def checkPanTiltActive(cfg) -> bool:
         else:
             return True
     else:
-        logging.error(f"unknown PanTilt settings :{self.cfg.PanTilt.active}")
+        logging.error(f"unknown PanTilt settings :{cfg.PanTilt.active}")
         exit(-1)
 
 def checkHasTilt(cfg):
