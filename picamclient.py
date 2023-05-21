@@ -764,7 +764,6 @@ class PiCam2Client (mqtt.Client):
                                 cert_reqs=ssl.CERT_REQUIRED)
                 else:
                     logging.info("No Key and Cert")
-                self.tls_insecure_set(self.cfg.MQTTBroker.insecure)
                 self.connect(
                     self.cfg.MQTTBroker.host,
                     self.cfg.MQTTBroker.port)
