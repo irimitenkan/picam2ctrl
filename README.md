@@ -99,7 +99,7 @@ Example config.json
   ```
   {
     "LogLevel":"INFO",
-    "storepath": "/home/vanluna/picam2",
+    "storepath": "/home/pi/picam2",
 
     "camera": {
     "index":0,
