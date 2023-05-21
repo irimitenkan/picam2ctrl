@@ -757,13 +757,13 @@ class PiCam2Client (mqtt.Client):
                     self.cfg.MQTTBroker.username,
                     self.cfg.MQTTBroker.password)
                 # no client certificate needed
-                if len(self.cfg.MQTTBroker.clientcertfile) and \
-                   len(self.cfg.MQTTBroker.clientkeyfile):
-                    self.tls_set(certfile=self.cfg.MQTTBroker.clientcertfile, \
-                                 keyfile=self.cfg.MQTTBroker.clientkeyfile, \
-                                 cert_reqs=ssl.CERT_REQUIRED)
+                if (self.cfg.MQTTBroker.clientcertfile and self.cfg.MQTTBroker.clientkeyfile):
+                    logging.info("Use Key and Cert")
+                    self.tls_set(certfile=self.cfg.MQTTBroker.clientcertfile,
+                                keyfile=self.cfg.MQTTBroker.clientkeyfile,
+                                cert_reqs=ssl.CERT_REQUIRED)
                 else:
-                    self.tls_set(cert_reqs=ssl.CERT_NONE)
+                    logging.info("No Key and Cert")
                 self.tls_insecure_set(self.cfg.MQTTBroker.insecure)
                 self.connect(
                     self.cfg.MQTTBroker.host,

@@ -99,7 +99,7 @@ Example config.json
   ```
   {
     "LogLevel":"INFO",
-    "storepath": "/home/pi/picam2",
+    "storepath": "/home/vanluna/picam2",
 
     "camera": {
     "index":0,
@@ -149,7 +149,6 @@ Example config.json
       "port": 8883,
       "username":"<USERNAME>",
       "password":"<SECRET>",
-      "insecure":true,
       "connection_retries":3,
       "clientkeyfile":"",
       "clientcertfile":""

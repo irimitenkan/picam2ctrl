@@ -50,7 +50,6 @@
 	"port": 8883,
 	"username":"brokerUserName",
 	"password":"brokerPassWD",
-	"insecure":true,
 	"connection_retries":3,
 	"clientkeyfile":"",
 	"clientcertfile":""
