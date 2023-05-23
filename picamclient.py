@@ -759,17 +759,20 @@ class PiCam2Client (mqtt.Client):
                 # no client certificate needed
                 if len(self.cfg.MQTTBroker.clientcertfile) and \
                    len(self.cfg.MQTTBroker.clientkeyfile):
-                    self.tls_set(certfile=self.cfg.MQTTBroker.clientcertfile, \
-                                 keyfile=self.cfg.MQTTBroker.clientkeyfile, \
+                    self.tls_set(certfile=self.cfg.MQTTBroker.clientcertfile,
+                                 keyfile=self.cfg.MQTTBroker.clientkeyfile,
                                  cert_reqs=ssl.CERT_REQUIRED)
                 else:
+                    # some users reported connection problems due to this call
+                    # but in my environmet this is a MUST
                     self.tls_set(cert_reqs=ssl.CERT_NONE)
-                self.tls_insecure_set(self.cfg.MQTTBroker.insecure)
+                #commented out due to reported connection problems when user/pw not set
+                #self.tls_insecure_set(self.cfg.MQTTBroker.insecure)
+
                 self.connect(
                     self.cfg.MQTTBroker.host,
                     self.cfg.MQTTBroker.port)
                 self.loop_start()
-                # picam2client.setup(client,cfg)
                 mqttattempts = self.cfg.MQTTBroker.connection_retries
             except BaseException as e:
                 logging.error(
