@@ -15,7 +15,8 @@ import signal
 import paho.mqtt.client as mqtt
 
 from enum import Enum
-from utils import Config, ThreadEvents
+from utils import ThreadEvents
+from config import Config,CheckConfig
 from threading import Semaphore
 from paho.mqtt.client import connack_string as conn_ack
 from picam2 import ImageCapture, VideoCapture, HTTPStreamCapture
@@ -28,11 +29,6 @@ MQTT_CLIENT_ID = 'picam2ctrl'
 HASS_DISCOVERY_PREFIX = 'homeassistant'
 BASE_TOPIC = f"{MQTT_CLIENT_ID}/{hostname}"
 
-PAN_TILT_HARDWARE={
-    "None":"None",
-    "ULN2003":"STMicroelectronics",
-    "WAVESHARE_HAT":"Waveshare"
-    }
 
 """
 QOS: 0 => fire and forget A -> B
@@ -171,28 +167,6 @@ TOPICS = {
 
 }
 
-def checkPanTiltActive(cfg) -> bool:
-    if cfg.PanTilt.active in PAN_TILT_HARDWARE:
-        if "None" == cfg.PanTilt.active:
-            return False
-        else:
-            return True
-    else:
-        logging.error(f"unknown PanTilt settings :{cfg.PanTilt.active}")
-        exit(-1)
-
-def checkHasTilt(cfg):
-    if ("ULN2003" == cfg.PanTilt.active and \
-        cfg.PanTilt.ULN2003.Tilt_enabled) or \
-        "WAVESHARE_HAT" == cfg.PanTilt.active:
-        return True
-    return False
-
-def checkHasLightSens(cfg):
-    if "WAVESHARE_HAT" == cfg.PanTilt.active:
-        return True
-    return False
-
 def encode_json(value) -> str:
     return json.dumps(value)
 
@@ -219,18 +193,18 @@ class PiCam2Client (mqtt.Client):
         self.manufacturer = "unknown"
         self.swversion = "x.x"
         self.activeThreads=ThreadEvents()
+        self._lightSensor= None
 
-        if checkHasLightSens(self.cfg):
-            self._lightSensor=LightSensor(self,self.cfg.PanTilt.WAVESHARE_HAT.sensorRefresh)
-        else:
-            self._lightSensor= None
 
-        if self.cfg.PanTilt.active == "ULN2003":
+        if CheckConfig.HasULN2003(self.cfg):
             self._PanTiltCam = PanTiltStepMotors(self, self.cfg)
-        elif self.cfg.PanTilt.active == "WAVESHARE_HAT":
+        elif CheckConfig.HasWaveShare(self.cfg):
             self._PanTiltCam = PanTiltServoMotors(self, self.cfg)
+            if CheckConfig.HasLightSens(self.cfg):
+                self._lightSensor=LightSensor(self,self.cfg.PanTilt.WAVESHARE_HAT.sensorRefresh)
+
         else:
-            logging.debug("*** NO PanTilt Hardware configured")
+            logging.debug("No PanTilt HW configured")
             self._PanTiltCam = None
 
         if self._PanTiltCam:
@@ -291,10 +265,10 @@ class PiCam2Client (mqtt.Client):
         
     def publish_avail_topics(self):
         for t in range(eTPCS.SNAPSHOT_AVAIL.value, eTPCS.END_AVAIL.value):
-            if not checkPanTiltActive(self.cfg) and \
+            if not CheckConfig.HasPanTilt(self.cfg) and \
                t in PANTILT_AVAIL_TPCS:
                 continue 
-            elif not checkHasTilt(self.cfg) and t==eTPCS.TILT_AVAIL.value:
+            elif not CheckConfig.HasTilt(self.cfg) and t==eTPCS.TILT_AVAIL.value:
                 continue
             self.publish_avail(eTPCS(t))
         self.publish_avail(eTPCS.MOTION_AVAIL, self._motionEnabled)
@@ -650,7 +624,7 @@ class PiCam2Client (mqtt.Client):
         self.publish(TOPICS[eTPCS.HASS_DISCOVERY_MOTION],
                      payload=encode_json(config_motion), retain=True)
         
-        if checkPanTiltActive(self.cfg):
+        if CheckConfig.HasPanTilt(self.cfg):
             self.publish_hass_pantilt()
 
 
@@ -658,7 +632,7 @@ class PiCam2Client (mqtt.Client):
         ver="0.2.0"
         dev = {
                 "identifiers":[f"{MQTT_CLIENT_ID}_{hostname}"],
-                "manufacturer": PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
+                "manufacturer": CheckConfig.PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
                 "model": self.cfg.PanTilt.active,
                 "sw_version": ver,
                 "name": f"{MQTT_CLIENT_ID}.{hostname}.PanTilt"
@@ -699,7 +673,7 @@ class PiCam2Client (mqtt.Client):
         self.publish(TOPICS[eTPCS.HASS_DISCOVERY_PANA],
                      payload=encode_json(config_pana), retain=True)
 
-        if checkHasTilt(self.cfg):
+        if CheckConfig.HasPanTilt(self.cfg):
             config_tilt = {
                 "device": dev,
                 "availability_topic": TOPICS[eTPCS.TILT_AVAIL],
@@ -720,10 +694,10 @@ class PiCam2Client (mqtt.Client):
             self.publish(TOPICS[eTPCS.HASS_DISCOVERY_TILT],
                          payload=encode_json(config_tilt), retain=True)
 
-        if checkHasLightSens(self.cfg):
+        if CheckConfig.HasLightSens(self.cfg):
             dev = {
                 "identifiers":[f"{MQTT_CLIENT_ID}_{hostname}"],
-                "manufacturer": PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
+                "manufacturer": CheckConfig.PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
                 "model": "TSL2591",
                 "sw_version": ver,
                 "name": f"{MQTT_CLIENT_ID}.{hostname}.Lightsensor"
@@ -803,14 +777,16 @@ class PiCam2Client (mqtt.Client):
                 exit(-1)
 
 
-def startClient(cfg: Config):
+def startClient(cfgfile: str):
     """
     generator help function to create MQTT client instance  & start it
     """
 
+    cfg=Config.load_json(cfgfile)
     logging.basicConfig(level=LOG_LEVEL[cfg.LogLevel],
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         datefmt='%H:%M:%S')
-    checkPanTiltActive(cfg)
+    #validate config only
+    CheckConfig.HasPanTilt(cfg)
     client = PiCam2Client(cfg)
     client.startup_client()

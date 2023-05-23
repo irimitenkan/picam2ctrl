@@ -5,7 +5,8 @@ Created on 08.04.2023
 '''
 import logging
 
-from utils import ThreadEvent, Config
+from utils import ThreadEvent
+from config import Config
 from pantilt.waveshare.PCA9685 import PCA9685 as Servos
 from pantilt import PanTilt
 from time import sleep

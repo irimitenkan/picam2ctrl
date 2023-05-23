@@ -4,7 +4,8 @@ Created on 05.04.2023
 @author: irimi
 '''
 
-from utils import ThreadEvent, Config
+from utils import ThreadEvent
+from config import Config
 from pantilt.ULN2003.stepmotor import StepMotor
 from pantilt import PanTilt
 

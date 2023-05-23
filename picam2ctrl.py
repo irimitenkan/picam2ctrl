@@ -17,7 +17,6 @@ import sys
 import os
 
 from optparse import OptionParser
-from utils import Config
 from picamclient import startClient
 
 __all__ = []
@@ -53,7 +52,7 @@ def main(argv=None):
     if opts.cfgfile:
         print("cfgfile = %s" % opts.cfgfile)
 
-    startClient(Config.load_json(opts.cfgfile))
+    startClient(opts.cfgfile)
 
 
 if __name__ == "__main__":

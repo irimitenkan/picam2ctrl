@@ -1,0 +1,95 @@
+'''
+Created on 23.05.2023
+
+@author: irimi
+'''
+
+import json
+import logging
+
+class Dict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+# found at
+# https://stackoverflow.com/questions/19078170/python-how-would-you-save-a-simple-settings-config-file
+class Config(object):
+    @staticmethod
+    def __load__(data):
+        if isinstance(data, dict):
+            return Config.load_dict(data)
+        elif isinstance(data, list):
+            return Config.load_list(data)
+        else:
+            return data
+
+    @staticmethod
+    def load_dict(data: dict):
+        result = Dict()
+        for key, value in data.items():
+            result[key] = Config.__load__(value)
+        return result
+
+    @staticmethod
+    def load_list(data: list):
+        result = [Config.__load__(item) for item in data]
+        return result
+
+    @staticmethod
+    def load_json(path: str):
+        with open(path, "r") as f:
+            result = Config.__load__(json.loads(f.read()))
+        return result
+
+
+
+class CheckConfig (object):
+
+    PAN_TILT_HARDWARE={
+        "None":"None",
+        "ULN2003":"STMicroelectronics",
+        "WAVESHARE_HAT":"Waveshare"
+        }
+
+    @staticmethod
+    def HasPanTilt(cfg:Config) -> bool:
+        if cfg.PanTilt.active in CheckConfig.PAN_TILT_HARDWARE:
+            if "None" == cfg.PanTilt.active:
+                return False
+            else:
+                return True
+        else:
+            logging.error(f"unknown PanTilt settings :{cfg.PanTilt.active}")
+            exit(-1)
+    
+    @staticmethod
+    def HasWaveShare(cfg:Config) -> bool:
+        if CheckConfig.HasPanTilt(cfg):
+            return cfg.PanTilt.active=="WAVESHARE_HAT"
+        return False
+
+    @staticmethod
+    def HasULN2003(cfg:Config) -> bool:
+        if CheckConfig.HasPanTilt(cfg):
+            return cfg.PanTilt.active=="ULN2003"
+        return False
+
+    @staticmethod
+    def HasTilt(cfg:Config) -> bool:
+        if ("ULN2003" == cfg.PanTilt.active and \
+            cfg.PanTilt.ULN2003.Tilt_enabled) or \
+            "WAVESHARE_HAT" == cfg.PanTilt.active:
+            return True
+        return False
+    
+    @staticmethod    
+    def HasLightSens(cfg:Config) -> bool:
+        if "WAVESHARE_HAT" == cfg.PanTilt.active:
+            return True
+        return False
+
+#cfg=Picam2Ctrl("./config.json")
+#def getCfg()->Picam2Ctrl:
+#    return cfg

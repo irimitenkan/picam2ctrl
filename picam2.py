@@ -16,7 +16,9 @@ from picamera2.outputs import FfmpegOutput
 from picamera2.outputs import FileOutput
 from picamera2 import Picamera2, MappedArray
 from picamera2.encoders import MJPEGEncoder
-from utils import ThreadEvent, Config, StreamingOutput, StreamingHandler,StreamingServer
+from utils import ThreadEvent, StreamingOutput, StreamingHandler,StreamingServer
+from config import Config
+
 from cv2 import putText
 
 
