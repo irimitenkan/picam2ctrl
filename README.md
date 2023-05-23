@@ -24,23 +24,23 @@ MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://ww
 
 * actual 10 different MQTT client entities
 * taking snapshot pictures
-* capturing MP4 videos incl. audio 
+* capturing MP4 videos incl. audio
 * simple HTTP MJPEG streaming server
 * UDP video streaming
 * motion/occupancy detection by camera
 * timestamp support
 * PAN / TILT camera support with 5V Stepper Motor (28BYJ-48) and ULN2003 driver board (optinal)
 * PAN-TILT Hat by Waveshare integrated incl. lighsensor
-* support of secure copy latest picture- / video-files to SSH server 
+* support of secure copy latest picture- / video-files to SSH server
 
 # Installation
 
 Raspberry Pi OS bullseye version is required and camera legacy mode must be disabled in raspi-config.
-On headless Raspberry Pi OS lite you have to update from *libcamera-apps-lite* to full version *libcamera-apps*. 
+On headless Raspberry Pi OS lite you have to update from *libcamera-apps-lite* to full version *libcamera-apps*.
 No gui but OpenCV python bindings and paho-mqtt package are required:
 
   ```
-  sudo apt-get install -y --no-install-recommends libcamera-apps python3-picamera2 python3-opencv python3-paho-mqtt ffmpeg git
+  sudo apt-get install -y --no-install-recommends libcamera-apps python3-picamera2 python3-opencv python3-paho-mqtt python3-smbus ffmpeg git
   ```
 
 finally clone the picam2ctrl repository:
@@ -207,7 +207,7 @@ Example config.json
 
   ```
 
-## camera options 
+## camera options
 * "index":0 - the camera idx of connected camera
 * "hflip", vflip: 0/1 - to rotate camera output
 * "sensitivity": 10 - used for motion detection,for manual calibration, set LogLevel to "DEBUG" and check output during detection.
@@ -220,10 +220,10 @@ Example config.json
 ## video options
 * "quality" : "HIGH" - allowed values: VERY_LOW, LOW, MEDIUM, HIGH or VERY_HIGH
 * "duration" : 30 - mp4 record time length in [s].
-* "audio":true - enable/disable audio for mp4 file resp UDP streaming (http actually not supported). 
+* "audio":true - enable/disable audio for mp4 file resp UDP streaming (http actually not supported).
 
 ## SSHClient options
-resp. SCP support to be used to copy latest snapshot picture / mp4 video to a SSH server (e.g. your Home Assistant host) 
+resp. SCP support to be used to copy latest snapshot picture / mp4 video to a SSH server (e.g. your Home Assistant host)
 but setup up public key authentication is required:
 
 1. generate SSH Key with ssh-keygen e.g. ```ssh-keygen -t rsa -b 4096```
