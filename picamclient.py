@@ -625,19 +625,10 @@ class PiCam2Client (mqtt.Client):
                      payload=encode_json(config_motion), retain=True)
         
         if CheckConfig.HasPanTilt(self.cfg):
-            self.publish_hass_pantilt()
+            self.publish_hass_pantilt(dev)
 
 
-    def publish_hass_pantilt(self):
-        ver="0.2.0"
-        dev = {
-                "identifiers":[f"{MQTT_CLIENT_ID}_{hostname}"],
-                "manufacturer": CheckConfig.PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
-                "model": self.cfg.PanTilt.active,
-                "sw_version": ver,
-                "name": f"{MQTT_CLIENT_ID}.{hostname}.PanTilt"
-            }
-
+    def publish_hass_pantilt(self,dev):
         config_pan = {
             "device": dev,
             "availability_topic": TOPICS[eTPCS.PAN_AVAIL],
@@ -695,13 +686,6 @@ class PiCam2Client (mqtt.Client):
                          payload=encode_json(config_tilt), retain=True)
 
         if CheckConfig.HasLightSens(self.cfg):
-            dev = {
-                "identifiers":[f"{MQTT_CLIENT_ID}_{hostname}"],
-                "manufacturer": CheckConfig.PAN_TILT_HARDWARE[self.cfg.PanTilt.active],
-                "model": "TSL2591",
-                "sw_version": ver,
-                "name": f"{MQTT_CLIENT_ID}.{hostname}.Lightsensor"
-            }
 
             config_sens = {
                 "device": dev,
@@ -710,7 +694,7 @@ class PiCam2Client (mqtt.Client):
                 "icon": "mdi:brightness-5",
                 "json_attributes_topic": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
                 "state_class": "measurement",
-                "unit_of_measurement":"lux",
+                "unit_of_measurement":"lx",
                 "unique_id": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
                 "state_topic": f"{MQTT_CLIENT_ID}/{hostname}/lightsensor",
                 "name": f"{MQTT_CLIENT_ID}.{hostname}.Lightsensor",
