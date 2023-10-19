@@ -263,19 +263,20 @@ class PiCam2Client (mqtt.Client):
         self.subsribe_topics()
 
         
-    def publish_avail_topics(self):
+    def publish_avail_topics(self,avail=True):
         for t in range(eTPCS.SNAPSHOT_AVAIL.value, eTPCS.END_AVAIL.value):
             if not CheckConfig.HasPanTilt(self.cfg) and \
                t in PANTILT_AVAIL_TPCS:
                 continue 
             elif not CheckConfig.HasTilt(self.cfg) and t==eTPCS.TILT_AVAIL.value:
                 continue
-            self.publish_avail(eTPCS(t))
+            self.publish_avail(eTPCS(t),avail)
         self.publish_avail(eTPCS.MOTION_AVAIL, self._motionEnabled)
 
         if self._lightSensor:
-            self.publish_avail(eTPCS.LIGHTSENS_AVAIL)
-            self.activeThreads.addThread(self._lightSensor)
+            self.publish_avail(eTPCS.LIGHTSENS_AVAIL,avail)
+            if avail:
+                self.activeThreads.addThread(self._lightSensor)
 
     def publish_state_topics(self):
         for t in range(eTPCS.SNAPSHOT_STATE.value, eTPCS.END_STATE.value):
@@ -401,9 +402,7 @@ class PiCam2Client (mqtt.Client):
         if self._PanTiltCam:
             self._PanTiltCam.resetAngles()
 
-        for t in range(eTPCS.SNAPSHOT_AVAIL.value, eTPCS.END_AVAIL.value):
-            self.publish_avail(eTPCS(t), False)
-        
+        self.publish_avail_topics(avail=False)
         self.publish_avail(eTPCS.MOTION_AVAIL, False)
         self._online = False
         self.publish_state(eTPCS.ONLINE_STATE)
