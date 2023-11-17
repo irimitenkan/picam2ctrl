@@ -7,7 +7,7 @@
   "hflip":1,
   "vflip":1,
   "sensitivity": 10,
-  "tuning":"/usr/share/libcamera/ipa/raspberrypi/imx708.json"
+  "tuning":"/usr/share/libcamera/ipa/rpi/vc4/imx708.json"
   },
 
   "timestamp": { 
@@ -38,10 +38,10 @@
 	"audio":true,
 
     "streaming": {
-	  "udp_addr": "<destination IP address>",
-	  "udp_port": 10001,
-	  "http_port": 8010,
-	  "http_index":"www/index.html"
+        "udp_addr": "<destination IP address>",
+        "udp_port": 10001,
+        "http_port": 8010,
+        "http_index":"www/index.html"
 	}
   },
 
@@ -79,7 +79,7 @@
 	"None":{
 		"//":"PanTilt is disabled"
 		},
-	
+
   	"ULN2003":{
 	  	"Pan_enabled":true,
 	  	"Tilt_enabled":false,
@@ -88,13 +88,13 @@
 		"Pan_GPIO_PinB": 22,
 		"Pan_GPIO_PinC": 23,
 		"Pan_GPIO_PinD": 24,
-	
+
 		"Tilt_GPIO_PinA": 13,
 		"Tilt_GPIO_PinB": 15,
 		"Tilt_GPIO_PinC": 16,
 		"Tilt_GPIO_PinD": 18
 	},
-	
+
 	"WAVESHARE_HAT":{
 		"sensorRefresh":60
 			  }
