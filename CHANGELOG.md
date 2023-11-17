@@ -1,4 +1,10 @@
 # Change Log
+## v0.2.3
+
+### Changed
+ * MQTT publish fixes
+ * client MQTT HA available fix
+ * check json config design update
 
 ## v0.2.2
 
