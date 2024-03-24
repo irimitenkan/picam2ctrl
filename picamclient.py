@@ -734,7 +734,8 @@ class PiCam2Client (mqtt.Client):
             # client certificate needed ?
             if len(self.cfg.MQTTBroker.clientcertfile) and \
                len(self.cfg.MQTTBroker.clientkeyfile):
-                self.tls_set(certfile=self.cfg.MQTTBroker.clientcertfile,
+                self.tls_set(ca_certs=self.cfg.MQTTBroker.servercafile,
+                             certfile=self.cfg.MQTTBroker.clientcertfile,
                              keyfile=self.cfg.MQTTBroker.clientkeyfile,
                              cert_reqs=ssl.CERT_REQUIRED)
             res=self.connect(self.cfg.MQTTBroker.host,self.cfg.MQTTBroker.port)

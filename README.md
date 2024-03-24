@@ -149,8 +149,7 @@ Example config.json
       "port": 8883,
       "username":"<USERNAME>",
       "password":"<SECRET>",
-      "insecure":true,
-      "connection_retries":3,
+      "servercafile":"",
       "clientkeyfile":"",
       "clientcertfile":""
     },

@@ -51,8 +51,12 @@
 	"//port": 8883,
 	"username":"brokerUserName",
 	"password":"brokerPassWD",
+	"servercafile":"",
+	"//servercafile":"./ca.crt",
 	"clientkeyfile":"",
-	"clientcertfile":""
+	"//clientkeyfile":"./client.key",
+	"clientcertfile":".",
+	"//clientcertfile":"./client.crt"
   },
   
   "SSHClient":{ 
