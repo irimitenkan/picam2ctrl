@@ -1,6 +1,9 @@
 # Change Log
+## v0.2.5
+ * TLS bugfix of issue #9
+
 ## v0.2.4
- * bugfix of issue #9
+ * bugfix without TLS of issue #9
 
 ## v0.2.3
 

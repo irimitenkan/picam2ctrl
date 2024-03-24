@@ -20,7 +20,7 @@ from optparse import OptionParser
 from picamclient import startClient
 
 __all__ = []
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 __updated__ = '2024-03-24'
 
 def main(argv=None):
