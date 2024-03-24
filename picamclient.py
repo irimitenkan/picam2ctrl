@@ -37,7 +37,7 @@ QOS: 1 => at leat one - msg will be send
 QOS: 3 => exactly once :
           Publish (A) -> PubRec (B) -> PUBREL (A) -> PUBCOM (B) -> A
 """
-QOS = 1
+QOS = 0
 
 """ True: MSG is stored at Broker and keeps available for new subscribes,
     False: new publish required after subscribes
@@ -176,6 +176,7 @@ class PiCam2Client (mqtt.Client):
 
     def __init__(self, cfg) -> None:
         super().__init__(MQTT_CLIENT_ID)
+        self._disconnectRQ = False
         self.cfg = cfg
         self._mqtt_client = None
         self._update = False
@@ -194,7 +195,6 @@ class PiCam2Client (mqtt.Client):
         self.swversion = "x.x"
         self.activeThreads=ThreadEvents()
         self._lightSensor= None
-
 
         if CheckConfig.HasULN2003(self.cfg):
             self._PanTiltCam = PanTiltStepMotors(self, self.cfg)
@@ -253,16 +253,16 @@ class PiCam2Client (mqtt.Client):
         on_connect when MQTT CleanSession=False (default) conn_ack will be send from broker
         """
         logging.debug(f"Connection returned result: {conn_ack(rc)}")
-        self._online = True
-        self.publish_hass()
-        time.sleep(1)
-        self.publish_avail_topics()
-        time.sleep(1)
-        self.publish_state_topics()
-        time.sleep(1)
-        self.subsribe_topics()
+        if 0 == rc:
+            self._online = True
+            self.publish_hass()
+            time.sleep(1)
+            self.publish_avail_topics()
+            time.sleep(1)
+            self.publish_state_topics()
+            time.sleep(1)
+            self.subsribe_topics()
 
-        
     def publish_avail_topics(self,avail=True):
         for t in range(eTPCS.SNAPSHOT_AVAIL.value, eTPCS.END_AVAIL.value):
             if not CheckConfig.HasPanTilt(self.cfg) and \
@@ -379,8 +379,28 @@ class PiCam2Client (mqtt.Client):
                 logging.warning(f"Ignoring request {message.topic}:{payload}")
 
     def on_disconnect(self, _client, _userdata, rc=0):
-        logging.debug("Broker disconnected: " + str(rc))
-        self.loop_stop()
+        """
+        on_disconnect by external event
+        """
+        if rc > 0 and not self._disconnectRQ:
+            logging.error("MQTT broker was disconnected: " + str(rc))
+            match rc:
+                case 16:
+                    logging.error("by router , WIFI access point channel has changed?")
+                    time.sleep(30) # some time to reconnect
+                case 7:
+                    logging.error("broker down ?")
+                    time.sleep(30) # some time to reconnect
+                case 5:
+                    logging.error ("not authorised")
+                    self._disconnectRQ = True
+                case _:
+                    logging.error ("unknown reason")
+                    self.loop_stop()
+                    self._disconnectRQ = True
+        else:
+            logging.debug("client disconnected: " + str(rc))
+            self.loop_stop()
 
     # """
     # on_subscribe when SUB_ACK is send from broker due to client subscribe request
@@ -399,6 +419,8 @@ class PiCam2Client (mqtt.Client):
         """
         clean up everything when keyboard CTRL-C or daemon kill request occurs
         """
+        logging.info(f"MQTT client {self._client_id} down")
+        self._disconnectRQ=True
         if self._PanTiltCam:
             self._PanTiltCam.resetAngles()
 
@@ -466,7 +488,6 @@ class PiCam2Client (mqtt.Client):
 
     def publish_avail(self, msg: eTPCS, avail=True):
         """ publish avalibale topics """
-        retain = RETAIN
         payload = None
         if msg.value >= eTPCS.SNAPSHOT_AVAIL.value or \
            msg.value < eTPCS.END_AVAIL.value or \
@@ -475,14 +496,13 @@ class PiCam2Client (mqtt.Client):
             payload = "online" if avail else "offline"
 
         if payload:
-            self.publish(TOPICS[msg], payload, retain)
+            self.publish(TOPICS[msg], payload=payload, qos=0, retain=RETAIN)
             logging.debug(f"publish {str(msg)}:{payload}")
         else:
             logging.warning(f"unhandled publish avail message:{TOPICS[msg]}")
 
     def publish_state(self, msg: eTPCS, payload=None):
         """ publish state topics """
-        retain = RETAIN
         topic = TOPICS[msg]
         if eTPCS.ONLINE_STATE == msg:
             payload = self._online
@@ -504,7 +524,7 @@ class PiCam2Client (mqtt.Client):
             payload = self._tiltAngle
 
         if payload is not None:
-            self.publish(topic, payload, retain)
+            self.publish(topic, payload,qos=QOS, retain=RETAIN)
             logging.debug(f"publish {str(msg)}:{payload}")
         else:
             logging.warning(f"unhandled publish state message:{TOPICS[msg]}")
@@ -706,47 +726,46 @@ class PiCam2Client (mqtt.Client):
         """
         Start the MQTT client
         """
-        logging.info(f'Starting up MQTT Service {MQTT_CLIENT_ID}')
-        mqttattempts = 0
-        while mqttattempts < self.cfg.MQTTBroker.connection_retries:
-            try:
-                self.username_pw_set(
-                    self.cfg.MQTTBroker.username,
-                    self.cfg.MQTTBroker.password)
-                # no client certificate needed
-                if len(self.cfg.MQTTBroker.clientcertfile) and \
-                   len(self.cfg.MQTTBroker.clientkeyfile):
-                    self.tls_set(certfile=self.cfg.MQTTBroker.clientcertfile,
-                                 keyfile=self.cfg.MQTTBroker.clientkeyfile,
-                                 cert_reqs=ssl.CERT_REQUIRED)
-                else:
-                    # some users reported connection problems due to this call
-                    # but in my environmet this is a MUST
-                    self.tls_set(cert_reqs=ssl.CERT_NONE)
-                #commented out due to reported connection problems when user/pw not set
-                #self.tls_insecure_set(self.cfg.MQTTBroker.insecure)
-
-                self.connect(
-                    self.cfg.MQTTBroker.host,
-                    self.cfg.MQTTBroker.port)
-                self.loop_start()
-                mqttattempts = self.cfg.MQTTBroker.connection_retries
-            except BaseException as e:
-                logging.error(
-                    f"{str(e)}\nCould not establish MQTT Connection! Try again \
-                    {str(self.cfg.MQTTBroker.connection_retries - mqttattempts)} xtimes")
-                mqttattempts += 1
-                if mqttattempts == self.cfg.MQTTBroker.connection_retries:
-                    logging.error(
-                        f"Could not connect to MQTT Broker {self.cfg.MQTTBroker.host} exit")
-                    exit(-1)
-                time.sleep(2)
-
+        logging.info(f'Starting up MQTT Service {self._client_id}')
+        try:
+            self.username_pw_set(
+                self.cfg.MQTTBroker.username,
+                self.cfg.MQTTBroker.password)
+            # client certificate needed ?
+            if len(self.cfg.MQTTBroker.clientcertfile) and \
+               len(self.cfg.MQTTBroker.clientkeyfile):
+                self.tls_set(certfile=self.cfg.MQTTBroker.clientcertfile,
+                             keyfile=self.cfg.MQTTBroker.clientkeyfile,
+                             cert_reqs=ssl.CERT_REQUIRED)
+            res=self.connect(self.cfg.MQTTBroker.host,self.cfg.MQTTBroker.port)
+            logging.debug(f"MQTT host connection result: {res}")
+            if res>0:
+                match res:
+                    case 1: msg = "incorrect protocol version"
+                    case 2: msg = "invalid client identifier"
+                    case 3: msg = "server not available"
+                    case 4: msg = "wrong username or password"
+                    case 5: msg = "not authorised"
+                    case _:msg = "unknown reason"
+                logging.error(f"Broker connection failed due to {msg} and exit() ")
+                exit (-1)
+            self.loop_start()
+            time.sleep(3)
+            if self._disconnectRQ: #due to on_connect with error
+                #logging.info(f"{self._client_id} MQTT Goodbye!")
+                exit(-2)
+        except BaseException as e:
+            logging.error(
+                    f"{str(e)}:could not connect to MQTT Broker {self.cfg.MQTTBroker.host} exit ()")
+            exit(-1)
         # main MQTT client loop
         while True:
             logging.debug(f"{MQTT_CLIENT_ID}-Loop")
             try:
                 time.sleep(10)
+                if self._disconnectRQ:
+                    logging.info(f"{self._client_id} MQTT Goodbye!")
+                    exit(0)
 
             except KeyboardInterrupt:  # i.e. ctrl-c
                 self.client_down()

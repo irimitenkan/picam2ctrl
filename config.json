@@ -47,11 +47,10 @@
 
     "MQTTBroker":{ 
 	"host":"<MQTT Broker's IP address>",
-	"port": 8883,
+	"port": 1883,
+	"//port": 8883,
 	"username":"brokerUserName",
 	"password":"brokerPassWD",
-	"insecure":true,
-	"connection_retries":3,
 	"clientkeyfile":"",
 	"clientcertfile":""
   },
