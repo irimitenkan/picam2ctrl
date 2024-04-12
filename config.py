@@ -61,7 +61,10 @@ class CheckConfig (object):
             else:
                 return True
         else:
-            logging.error(f"unknown PanTilt settings :{cfg.PanTilt.active}")
+            logging.error(f"unknown PanTilt settings :'{cfg.PanTilt.active}'.")
+            logging.info("Supported HW")
+            for t in CheckConfig.PAN_TILT_HARDWARE:
+                logging.info(f"{t}")
             exit(-1)
     
     @staticmethod
