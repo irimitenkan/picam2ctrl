@@ -1,8 +1,8 @@
 {
   "LogLevel":"INFO",
   "storepath": "/home/pi/picam2",
-  
-  "camera": { 
+
+  "camera": {
   "index":0,
   "hflip":1,
   "vflip":1,
@@ -10,7 +10,7 @@
   "tuning":"/usr/share/libcamera/ipa/rpi/vc4/imx708.json"
   },
 
-  "timestamp": { 
+  "timestamp": {
    "enabled":true,
    "format": "%A %d.%b %Y - %X",
    "color" : "[255, 255, 0]",
@@ -19,7 +19,7 @@
    "fscale" : 2,
    "thickness" : 2
   },
-  
+
   "image": {
 	"prefix":"snap",
 	"fmt": "jpg",
@@ -27,7 +27,7 @@
 	"snapshots":1,
 	"snapshots_t":10
   },
-  
+
   "video": {
 	"prefix": "videosnap",
 	"fmt": "mp4",
@@ -38,15 +38,15 @@
 	"audio":true,
 
     "streaming": {
-        "udp_addr": "<destination IP address>",
+        "udp_addr": "localhost",
         "udp_port": 10001,
         "http_port": 8010,
         "http_index":"www/index.html"
 	}
   },
 
-    "MQTTBroker":{ 
-	"host":"<MQTT Broker's IP address>",
+    "MQTTBroker":{
+	"host":"localhost",
 	"port": 1883,
 	"//port": 8883,
 	"username":"brokerUserName",
@@ -58,17 +58,19 @@
 	"clientcertfile":".",
 	"//clientcertfile":"./client.crt"
   },
-  
-  "SSHClient":{ 
-  	"enabled":true,
-  	"server": "<SSH Server e.g. HASS>",
-  	"user" : "<USERNAME>",
-  	"dest_path" : "/opt/homeassistant/config/tmp"
+
+  "SSHClient":{
+        "enabled":false,
+        "server": "<SSH Server e.g. HASS>",
+        "user" : "<USERNAME>",
+        "dest_path" : "/opt/homeassistant/config/tmp"
   },
 
   "PanTilt":{
      "active":"None",
-	 "speed":"MEDIUM",
+     "//active":"WAVESHARE_HAT"
+     "//active":"ULN2003"
+     "speed":"MEDIUM",
       "Pan":{
           "angle_max":80,
           "angle_min":-80,
@@ -83,10 +85,10 @@
 		"//":"PanTilt is disabled"
 		},
 
-  	"ULN2003":{
-	  	"Pan_enabled":true,
-	  	"Tilt_enabled":false,
-	  	"check":true,
+      "ULN2003":{
+		"Pan_enabled":true,
+		"Tilt_enabled":false,
+		"check":true,
 		"Pan_GPIO_PinA": 27,
 		"Pan_GPIO_PinB": 22,
 		"Pan_GPIO_PinC": 23,
@@ -99,8 +101,8 @@
 	},
 
 	"WAVESHARE_HAT":{
-		"sensorRefresh":60
-			  }
+                       "sensorRefresh":60
+			}
 
   }
 
