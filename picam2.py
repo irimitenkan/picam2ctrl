@@ -51,10 +51,8 @@ def getCameraInfo():
     (stdout, _stderr) = p.communicate()
     if p.returncode == 0:
         res= [Picamera2.global_camera_info(),
-              str (stdout).strip('\\n').strip()]
-    
+              str(stdout, encoding='utf-8').strip()]
     return res
-
 
 class CaptureThread(ThreadEvent):
 

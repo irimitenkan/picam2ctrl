@@ -218,7 +218,6 @@ class PiCam2Client (hass.MQTTClient):
             self.model = info[0][self.cfg.camera.index].get("Model", "tbd")
             logging.info(
                 f"configured camera model:{self.model} ,detected: {len(info[0])}")
-            logging.debug (f"info1 = {info[1]} , type= {type(info[1])}")
             fnd = re.search("([vV][0-9][\S]+)", info[1])
             if fnd:
                 self.swversion = fnd.group()
@@ -329,7 +328,7 @@ class PiCam2Client (hass.MQTTClient):
                         elif payload == "OFF" and self._PanTiltCam.get_Pana_active():
                             active=False
                         self._PanTiltCam.pan_rotate_auto(active)
-                        self.publish_state(topic=self._stTopics[tp], payload= payload)
+                        self.publish_state(self._stTopics[tp], payload= payload)
                     break
                 elif TP_MOTION_EN == tp:
                     self.TopicValues[tp]= payload
