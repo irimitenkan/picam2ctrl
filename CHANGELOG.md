@@ -1,4 +1,13 @@
 # Change Log
+## v0.3.0
+ * Feature update: moved image snapshot-timer, -counter and
+   video timer settings from config.json to HASS integration
+ * Feature update: time elapse video creation based on
+   a set of snapshot images or video speed factor
+ * new record status entity
+ * MQTT hass discovery code re-design (new class MQTTClient )
+ * more stable handling of MQTT broker connection / disconnection problems
+
 ## v0.2.5
  * TLS bugfix of issue #9
 

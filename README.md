@@ -29,6 +29,7 @@ MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://ww
 * UDP video streaming
 * motion/occupancy detection by camera
 * timestamp support
+* time elapse video support
 * PAN / TILT camera support with 5V Stepper Motor (28BYJ-48) and ULN2003 driver board (optinal)
 * PAN-TILT Hat by Waveshare integrated incl. lighsensor
 * support of secure copy latest picture- / video-files to SSH server
@@ -122,18 +123,14 @@ Example config.json
     "image": {
       "prefix":"snap",
       "fmt": "jpg",
-      "size": "[4056, 3040]",
-      "snapshots":1,
-      "snapshots_t":10
+      "size": "[4056, 3040]"
     },
 
     "video": {
       "prefix": "videosnap",
-      "fmt": "mp4",
       "bitrate": 1000000,
       "size" : "[ 1920, 1080]",
       "quality" : "HIGH",
-      "duration" : 30,
       "audio":true,
 
       "streaming": {
@@ -218,7 +215,6 @@ Example config.json
 
 ## video options
 * "quality" : "HIGH" - allowed values: VERY_LOW, LOW, MEDIUM, HIGH or VERY_HIGH
-* "duration" : 30 - mp4 record time length in [s].
 * "audio":true - enable/disable audio for mp4 file resp UDP streaming (http actually not supported).
 
 ## SSHClient options
@@ -317,13 +313,13 @@ Full support of [Waveshare's Pan-Tilt Hat](https://www.waveshare.com/pan-tilt-ha
 All picam2ctrl entities will be detected by Home Assistant automatically
 by HASS discovery function via configured MQTT broker.
 
-*Known problem*
-* When picam2ctrl is started the very first time, all entities do not enter "available state"
- (for some unknown reason, it seems HASS discovery keeps in pending state ?)
-* workaround: just stop  and restart picam2ctrl again and restart Home-Assistant, too. Problem disappears after 2nd start. This is reproducible when I delete all picam2ctrl MQTT messages with [MQTT-Explorer](http://mqtt-explorer.com/).
-
-
 ## available Home Assistant entities
+
+- picam2ctrl.\< HOSTNAME \>.Record:
+
+  represents a state
+  * state runing when Image Snapshot / (Timelapse) Video or streaming is active
+  * state not running when no picam2 record function is active
 
 - picam2ctrl.\< HOSTNAME \>.Snapshot:
 
@@ -334,6 +330,28 @@ by HASS discovery function via configured MQTT broker.
   * when [Motion](#Motion) is enabled, picture(s) will be taken only after motion detection
   * when [timestamp](#Configuration) is enabled each picture has a time stamp as configured in json configuration
   * when [[SSHClient]](#Configuration) is enabled the latest taken picture(s) will be copied via secure shell to configured path @SSH server
+
+- picam2ctrl.\< HOSTNAME \>.SnapshotCounter
+
+  this is a number box field:
+  * setup how many images will taken when Snapshot function was triggered
+
+- picam2ctrl.\< HOSTNAME \>.SnapshotTimer
+
+  this is a number box field:
+  * setup the time between two image snapshots when SnapshotCounter > 1
+
+- picam2ctrl.\< HOSTNAME \>.TimeLapse:
+
+  This is a *switch* to activate / deactive TimeLapse function for Video resp. Snapshotfunction
+  * when active and 'Video' is triggered: a mp4 video with "VidLapsSpeed" factor is created
+  * when active and 'Snapshot' is triggered and SnapshotCounter > 1 : a mp4 video is created by concatenating the snapshot images
+  Attention: ffmmeg and mkvmerge must be installed
+
+- picam2ctrl.\< HOSTNAME \>.VidLapseSpeed
+
+  This is a *slider* to to setup the timeeplased video speed:
+  * the time speed factor to create an mp4 video when 'TimeLapse' is active
 
 - picam2ctrl.\< HOSTNAME \>.Video:
 

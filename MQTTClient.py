@@ -12,7 +12,6 @@ import time
 import socket
 import ssl
 import json
-from datetime import datetime
 
 """
 QOS: 0 => fire and forget A -> B
@@ -44,8 +43,16 @@ HASS_COMPONENT_MOTION = "motion"
 
 HASS_CLASS_DISTANCE = "distance"
 HASS_CLASS_ILLUMINANCE = "illuminance"
+HASS_CLASS_DURATION = "duration"
+HASS_CLASS_FREQUENCY = "frequency"
+HASS_CLASS_SPEED = "speed"
+HASS_CLASS_RUNNING = "running"
 HASS_CLASS_MOTION = HASS_COMPONENT_MOTION
 HASS_CLASS_SWITCH = HASS_COMPONENT_SWITCH
+HASS_CLASS_NONE = None
+
+HASS_STATE_ON = "on"
+HASS_STATE_OFF = "off"
 
 HASS_CONFIG_DEVICE = "device"
 HASS_CONFIG_DEVICE_CLASS = "device_class"
@@ -66,14 +73,7 @@ HASS_CONFIG_ATTR = "json_attributes_topic"
 
 HASS_CMD_SET = "set"
 
-DEBOUNCE_TIMER = 60
 DEBOUNCE_THRESHOLD = 2
-
-def checkTimer(t1,t2):
-    ret=False
-    if (t2-t1).total_seconds() <= DEBOUNCE_TIMER:
-        ret=True
-    return ret
 
 def encode_json(value) -> str:
     return json.dumps(value)
@@ -90,7 +90,6 @@ class MQTTClient (mqtt.Client):
         self.cfg = cfg
         self._disconnectRQ = False
         self._disconnectCnt = 0
-        self._disconnectTime = datetime.now()
         self._hostname = self._getHostTopicId()
         self._connected = False
         
@@ -196,9 +195,12 @@ class MQTTClient (mqtt.Client):
             if tp in self.HASSCONFIGS:
                 config_tp.update(self.HASSCONFIGS[tp])
             
+            if HASS_CONFIG_DEVICE_CLASS not in config_tp:
+                config_tp.update({HASS_CONFIG_DEVICE_CLASS : HASS_CLASS_NONE })
+                logging.warn (f"no device class defined for {tp}, using default 'None'")
             if config_tp[HASS_CONFIG_DEVICE_CLASS]==HASS_CLASS_SWITCH:
-                config_tp.update({HASS_CONFIG_PAYLOAD_ON : "ON" })
-                config_tp.update({HASS_CONFIG_PAYLOAD_ON : "ON" })
+                config_tp.update({HASS_CONFIG_PAYLOAD_ON : HASS_STATE_ON })
+                config_tp.update({HASS_CONFIG_PAYLOAD_OFF : HASS_STATE_OFF })
                 config_tp.update({HASS_CONFIG_CMD_TP: self._subTopics[tp]})
             elif config_tp[HASS_CONFIG_DEVICE_CLASS]==HASS_CLASS_MOTION:
                 config_tp.update({HASS_CONFIG_VALUE_TEMPLATE :"{{ value_json.occupancy  }}"})
@@ -281,12 +283,13 @@ class MQTTClient (mqtt.Client):
     def publish_state_topics(self):
         """ publish all state topics """
         for t in self._stTopics:
-            val = self.HASSCONFIGS[t]["device_class"]
+            logging.debug(f"publish_state_topics t={t}")
+            val = self.HASSCONFIGS[t][HASS_CONFIG_DEVICE_CLASS]
             if HASS_CLASS_ILLUMINANCE == val:
                 self.publish_state(self._stTopics[t], encode_json(
                     {f"{val}": self.TopicValues[t]}))
             elif HASS_CLASS_MOTION == val:
-                self.publish_state(self._stTopics[t], encode_json({"occupancy": False}))
+                self.publish_state(self._stTopics[t], encode_json({"occupancy": self.TopicValues[t]}))
             else:
                 self.publish_state(self._stTopics[t],self.TopicValues[t])
 
@@ -301,24 +304,15 @@ class MQTTClient (mqtt.Client):
         """
         on_disconnect by external event
         """
-        actTime=datetime.now()
         if rc > 0 and not self._disconnectRQ:
             logging.error(f"MQTT broker was disconnected: errorcode={rc} ")
             match rc:
                 case 16:
                     logging.error("- by router , WIFI access point channel has changed?")
-                    if checkTimer(actTime,self._disconnectTime):
-                        self._disconnectCnt+=1
-                    else:
-                        self._disconnectCnt=1
-                    self._disconnectTime=actTime
+                    self._disconnectCnt+=1
                 case 7:
                     logging.error("- broker down ?")
-                    if checkTimer(actTime,self._disconnectTime):
-                        self._disconnectCnt+=1
-                    else:
-                        self._disconnectCnt=1
-                    self._disconnectTime=actTime
+                    self._disconnectCnt+=1
                 case 5:
                     logging.error ("- not authorised")
                     self._disconnectRQ = True
@@ -330,6 +324,7 @@ class MQTTClient (mqtt.Client):
                     self.loop_stop()
                     self._disconnectRQ = True
             if self._disconnectCnt>=DEBOUNCE_THRESHOLD:
+                    logging.info (f"disconnect debounce cnt = {self._disconnectCnt} ")
                     logging.error ("connction broken - exit")
                     self.loop_stop()
                     self._disconnectRQ = True
@@ -358,8 +353,6 @@ class MQTTClient (mqtt.Client):
 
     def publish_state(self, topicId:str, payload=None):
         """ publish state topic """
-        logging.debug(f"MQTTClient:publish_state = {topicId}, {payload}")
-
         tp=topicId
         if not payload and topicId in self._stTopics:
             tp=self._stTopics[topicId]
@@ -424,7 +417,7 @@ class MQTTClient (mqtt.Client):
                 exit(-2)
         except BaseException as e:
             logging.error(
-                    f"{str(e)}:could not connect to MQTT Broker {self.cfg.MQTTBroker.host} exit ()")
+                    f"{str(e)}: connection to MQTT Broker {self.cfg.MQTTBroker.host} has failed & exit ()")
             exit(-3)
 
         # main MQTT client loop

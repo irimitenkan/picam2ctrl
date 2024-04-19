@@ -23,18 +23,14 @@
   "image": {
 	"prefix":"snap",
 	"fmt": "jpg",
-	"size": "[4056, 3040]",
-	"snapshots":1,
-	"snapshots_t":10
+	"size": "[4056, 3040]"
   },
 
   "video": {
 	"prefix": "videosnap",
-	"fmt": "mp4",
 	"bitrate": 1000000,
 	"size" : "[ 1920, 1080]",
 	"quality" : "HIGH",
-	"duration" : 30,
 	"audio":true,
 
     "streaming": {
@@ -68,8 +64,8 @@
 
   "PanTilt":{
      "active":"None",
-     "//active":"WAVESHARE_HAT"
-     "//active":"ULN2003"
+     "//active":"WAVESHARE_HAT",
+     "///active":"ULN2003",
      "speed":"MEDIUM",
       "Pan":{
           "angle_max":80,

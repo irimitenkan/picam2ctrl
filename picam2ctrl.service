@@ -1,10 +1,16 @@
 [Unit]
 Description=picam2ctrl MQTT client
 Documentation=https://github.com/irimitenkan/picam2ctrl#readme
+# limit to 5 restarts
+StartLimitBurst=10
+# StartLimitIntervalSec=1d
+# StartLimitIntervalSec=300
 After=network.target
 [Service]
 WorkingDirectory=%h/picam2ctrl
 ExecStart=python3 -u picam2ctrl.py
 Restart=always
+# wait 60s for possible WiFi reconnection
+RestartSec=60
 [Install]
 WantedBy=default.target

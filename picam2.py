@@ -22,6 +22,9 @@ from config import Config
 from cv2 import putText
 
 
+LAPS_FILEPATH ="timelapse"
+VIDEO_FMT = "mp4"
+
 FONTS = {
     "FONT_HERSHEY_SIMPLEX": 0,
     "FONT_HERSHEY_PLAIN": 1,
@@ -41,18 +44,54 @@ QUALITY = {
     "VERY_HIGH" : Quality.VERY_HIGH,
     }
 
-def getCameraInfo():
-    res = ("tbd","tbd")
+def popen (cmd):
+    logging.debug(cmd)
     p = sp.Popen(
-        "libcamera-hello --version",
+        cmd,
         shell=True,
         stdout=sp.PIPE,
         stderr=sp.PIPE)
-    (stdout, _stderr) = p.communicate()
-    if p.returncode == 0:
-        res= [Picamera2.global_camera_info(),
-              str(stdout, encoding='utf-8').strip()]
+    # waitpid(p.pid, 0)
+    (stdout, stderr) = p.communicate()
+    if p.returncode != 0:
+        logging.error(f"{cmd} has failed: {str (stderr)}")
+    else:
+        logging.debug(f"{cmd} return result: {str (stdout)}")
+        return str(stdout, encoding='utf-8').strip()
+
+    return None
+
+def getCameraInfo():
+    p = popen ("libcamera-hello --version")
+    if p:
+        res= [Picamera2.global_camera_info(),p]
+    else:
+        res= [Picamera2.global_camera_info(),"tbd"]
     return res
+
+"""
+creates a mp4 slideshow video.
+see details at https://trac.ffmpeg.org/wiki/Slideshow
+"""
+def mergeSlides (destPath):
+    src= Path(destPath+ "/" + LAPS_FILEPATH).joinpath("snap-%03d.jpg")
+    now = dt.now().strftime("%Y_%m_%d-%H_%M_%S")
+    dest=Path(destPath).joinpath(f"TimeLaps-{now}.mp4")
+    cmd = f"ffmpeg  -framerate 2 -i {src} -vf scale=1920:1080 -r 20  -c:v h264_v4l2m2m  -pix_fmt yuv420p {dest}"
+    popen(cmd)
+    return dest
+
+def mergeVideo(destPath,stamps, src):
+    dest=Path(destPath).joinpath(f"{src}.{VIDEO_FMT}")
+    #1st create time sync mkv container
+    cmd = f"mkvmerge -o {src}.mkv --timestamps 0:{stamps} {src}.h264"
+    if popen(cmd):
+        #2nd recode & move to mp4
+        cmd = f"ffmpeg -i {src}.mkv -metadata comment=\"created by Picam2Ctrl\" -b: 6M -c:v h264_v4l2m2m {dest}"
+        popen(cmd)
+        return True
+
+    return False
 
 class CaptureThread(ThreadEvent):
 
@@ -91,12 +130,13 @@ class CaptureThread(ThreadEvent):
 
     """
     delete "last file links" with specific file suffix in
-    cfg.storepath/latest directory
+    cfg.storepath/subdir directory
+    resp create directory
     
     @param suffix: suffix of files to be deleted
     """
-    def _clean_latest_(self, suffix):
-        p = Path(self.cfg.storepath).joinpath("latest")
+    def _clean_latest_(self, suffix,subdir="latest"):
+        p = Path(self.cfg.storepath).joinpath(subdir)
         if p.exists():  # delete old latest files
             logging.debug("trying to delete old last files in" + str(p))
             for fn in p.glob('*.' + suffix):
@@ -108,24 +148,15 @@ class CaptureThread(ThreadEvent):
     simple scp execution, copies complete directory content client -> server 
     don't forget to pre share public ssh key, e.g.: ssh-copy-id -i .ssh/id_rsa.pub user@ssh-server 
     """
-    def _scp_(self):
+    def _scp_(self,file=None):
         if self.cfg.SSHClient.enabled:
             conn = f"{self.cfg.SSHClient.user}@{self.cfg.SSHClient.server}"
             dst = ":" + self.cfg.SSHClient.dest_path
-            cmd = f"scp -r {Path(self.cfg.storepath + '/latest')} {conn}{dst}"
-            #cmd = (["scp", "-r", f"{Path(self.cfg.storepath + '/latest')}", f"{conn}{dst}"])
-            logging.debug(cmd)
-            p = sp.Popen(
-                cmd,
-                shell=True,
-                stdout=sp.PIPE,
-                stderr=sp.PIPE)
-            # waitpid(p.pid, 0)
-            (stdout, stderr) = p.communicate()
-            if p.returncode != 0:
-                logging.error(f"scp has failed: {str (stderr)}")
+            if file:
+                cmd = f"scp {file} {conn}{dst}"
             else:
-                logging.debug(f"scp return result: {str (stdout)}")
+                cmd = f"scp -r {Path(self.cfg.storepath + '/latest')} {conn}{dst}"
+            popen(cmd)
 
     """
     set timestamp to picam2 image/video/stream output 
@@ -194,7 +225,6 @@ class CaptureThread(ThreadEvent):
             self.timeout = 1
             self._single_capture_()
 
-
     """
     shutdown and clean picam2 capture thread
     """
@@ -216,9 +246,14 @@ class ImageCapture (CaptureThread):
     def __repr__(self):
         return "ImageCapture" 
     
-    def __init__(self, parent: ThreadEvent, cfg: Config, bMotion):
+    def __init__(self, parent: ThreadEvent, cfg: Config, iTime, iCount, bTimeLapse, bMotion):
         super().__init__(parent, cfg, bMotion)
         self._size = tuple(json.loads(cfg.image.size))
+        self.ImgCount=int(iCount)
+        self.ImgTime=int(iTime)
+        self.bTLapse=bTimeLapse
+        if bTimeLapse:
+            self._clean_latest_(self.cfg.image.fmt,subdir=LAPS_FILEPATH)
         
     """
     single_capture method for images: number on snapshots define in configirution
@@ -226,6 +261,7 @@ class ImageCapture (CaptureThread):
     1 ... n : capture 1 ... n images every    
     """
     def _single_capture_(self):
+
         logging.debug("ImageCapture: _single_capture_")
         iConfig = self.picam2.create_still_configuration(
             main={
@@ -233,48 +269,63 @@ class ImageCapture (CaptureThread):
             transform=libcamera.Transform(
                 hflip=self.cfg.camera.hflip,
                 vflip=self.cfg.camera.vflip))
+
         self.picam2.configure(iConfig)
         self.picam2.start()
         time.sleep(1)
         
-        if 0==self.cfg.image.snapshots: #endless loop until stop event
+        if 0==self.ImgCount: #endless loop until stop event
+            i=1
             while not self._stopEvent.is_set():
                 self._clean_latest_(self.cfg.image.fmt)
-                self._snapshot_(0)
-        else:
-            self._clean_latest_(self.cfg.image.fmt)
-            for i in range(0, self.cfg.image.snapshots):
                 self._snapshot_(i)
+                self._scp_() # scp latest
+                i+=1
+        else:
+            for i in range(0, self.ImgCount):
+                self._clean_latest_(self.cfg.image.fmt)
+                self._snapshot_(i+1)
+                self._scp_() # scp latest
                 if self._stopEvent.is_set():
                     break
             
         self.picam2.stop()
-        self._scp_()
-    
+        if self.bTLapse:
+            merged=mergeSlides(self.cfg.storepath)
+            if merged:
+                self._clean_latest_(self.cfg.image.fmt)
+                file_l = Path(self.cfg.storepath + '/latest').joinpath("latest."+VIDEO_FMT)
+                file_l.symlink_to(merged)
+                self._scp_()
+                self._clean_latest_(VIDEO_FMT)
+            else:
+                logging.debug("scp timelapsed failed")
     """
     make one single image snapshot
     @param i the image index number: 
     """
     def _snapshot_(self,i):
-        now = dt.now().strftime("%Y_%m_%d-%H_%M_%S")
-        fn = f"{self.cfg.image.prefix}-{now}.{self.cfg.image.fmt}"
-        fn_l = f"latest{i+1}.{self.cfg.image.fmt}"
-        file = Path(self.cfg.storepath).joinpath(fn)
+        if self.bTLapse:
+            fn = f"{self.cfg.image.prefix}-{i:03d}.{self.cfg.image.fmt}"
+            file = Path(self.cfg.storepath + "/" + LAPS_FILEPATH).joinpath(fn)
+        else:
+            now = dt.now().strftime("%Y_%m_%d-%H_%M_%S")
+            fn = f"{self.cfg.image.prefix}-{now}.{self.cfg.image.fmt}"
+            file = Path(self.cfg.storepath).joinpath(fn)
+        fn_l = f"latest.{self.cfg.image.fmt}"
         file_l = Path(self.cfg.storepath + '/latest').joinpath(fn_l)
 
         logging.debug(f"image file={file}")
         logging.debug(f"image file_latest={file_l}")
-        metadata = self.picam2.capture_file(str(file))
-
+        _metadata = self.picam2.capture_file(str(file))
         file_l.symlink_to(file)
-        logging.debug(f"metadata={str(metadata)}")
-        time.sleep(self.cfg.image.snapshots_t)
-        
-        
+        #logging.debug(f"metadata={str(metadata)}")
+        if self.ImgCount != 1:
+            time.sleep(self.ImgTime)
+
     def _shutdown_(self):
         self._clean_latest_(self.cfg.image.fmt)
         super()._shutdown_()
-
 
 class VideoCapture (CaptureThread):
     """
@@ -282,17 +333,17 @@ class VideoCapture (CaptureThread):
     """
     
     def __repr__(self):
-        return "VideoCapture" 
+        return "VideoCapture"
 
-    def __init__(self, parent: ThreadEvent, cfg: Config, bMotion):
+    def __init__(self, parent: ThreadEvent, cfg: Config, vTime, bMotion):
         super().__init__(parent, cfg, bMotion)
         logging.debug("creating VideoCapture")
         self._size = tuple(json.loads(cfg.video.size))
-
+        self.vidTime=int(vTime)
     def _single_capture_(self):
+        self._clean_latest_(VIDEO_FMT)
         quality=QUALITY.get(self.cfg.video.quality,Quality.HIGH)
         logging.debug("VideoCapture: _single_capture_")
-        self._clean_latest_(self.cfg.video.fmt)
         vconfig = self.picam2.create_video_configuration(
             main={
                 "size": self._size},
@@ -300,11 +351,10 @@ class VideoCapture (CaptureThread):
                 hflip=self.cfg.camera.hflip,
                 vflip=self.cfg.camera.vflip))
         self.picam2.configure(vconfig)
-        #self.picam2.start()
         encoder = H264Encoder(self.cfg.video.bitrate)
         now = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
-        fn = f"{self.cfg.video.prefix}-{now}.{self.cfg.video.fmt}"
-        fn_l = f"latest.{self.cfg.video.fmt}"
+        fn = f"{self.cfg.video.prefix}-{now}.{VIDEO_FMT}"
+        fn_l = f"latest.{VIDEO_FMT}"
         file = Path(self.cfg.storepath).joinpath(fn)
         file_l = Path(self.cfg.storepath + '/latest').joinpath(fn_l)
 
@@ -316,14 +366,96 @@ class VideoCapture (CaptureThread):
         output = FfmpegOutput(str(file), audio=self.cfg.video.audio)
         self.picam2.start_recording(
             encoder, output, quality)  # VERY_HIGH,VERY_LOW,MEDIUM
-        time.sleep(self.cfg.video.duration)
+        time.sleep(self.vidTime)
         self.picam2.stop_recording()
+        time.sleep(1)
         file_l.symlink_to(file)
         #self.picam2.stop()
         self._scp_()
 
     def _shutdown_(self):
-        self._clean_latest_(self.cfg.video.fmt)
+        self._clean_latest_(VIDEO_FMT)
+        super()._shutdown_()
+
+
+class VideoCaptureElapse (CaptureThread):
+    """
+    capture (mp4) timeelapse videos
+    """
+
+    class TimelapseOutput(FileOutput):
+        """
+        inner helper class TimelapseOutput
+        Define an output which divides all the timestamps by a factor
+        based on picamera2/examples/capture_timelaspe_video.py
+        """
+        def __init__(self, file=None, pts=None, speed=10):
+            self.speed = int(speed)
+            logging.debug (f"TimelapseOutput file={file}, pts={pts}, speed={speed}")
+            super().__init__(file, pts)
+
+        def outputtimestamp(self, timestamp):
+            if timestamp == 0:
+                # Print timecode format for the first line
+                print("# timestamp format v2", file=self.ptsoutput, flush=True)
+            # Divide each timestamp by factor to speed up playback
+            timestamp //= self.speed
+            super().outputtimestamp(timestamp)
+
+    def __repr__(self):
+        return "VideoCapture"
+
+    def __init__(self, parent: ThreadEvent, cfg: Config, vTime, vSpeed, bMotion):
+        super().__init__(parent, cfg, bMotion)
+        logging.debug("creating VideoCapture")
+        self._size = tuple(json.loads(cfg.video.size))
+        self.vidTime=int(vTime)
+        self.vidSpeed=int(vSpeed)
+        self._clean_latest_(VIDEO_FMT)
+
+    def _single_capture_(self):
+        quality=QUALITY.get(self.cfg.video.quality,Quality.HIGH)
+        logging.debug("VideoCaptureElapse: _single_capture_")
+
+        vconfig = self.picam2.create_video_configuration(
+            main={
+                "size": self._size},
+            transform=libcamera.Transform(
+                hflip=self.cfg.camera.hflip,
+                vflip=self.cfg.camera.vflip))
+        self.picam2.configure(vconfig)
+        encoder = H264Encoder(self.cfg.video.bitrate)
+        now = dt.now().strftime("%Y_%m_%d_%H_%M_%S")
+        fn = f"{self.cfg.video.prefix}-{now}"
+        fn_l = f"latest.{VIDEO_FMT}"
+        # str required due to  print() AttributeError:
+        #'PosixPath' object has no attribute 'write'
+        file = str(Path(self.cfg.storepath).joinpath(fn))
+        stamps = str(Path(self.cfg.storepath).joinpath("timestamps.txt"))
+
+        file_l = Path(self.cfg.storepath + '/latest').joinpath(fn_l)
+
+        logging.debug(f"video file={file}.{VIDEO_FMT}")
+        logging.debug(f"video file_latest={file_l}")
+
+        output = self.TimelapseOutput(file+".h264", stamps, self.vidSpeed)
+        encoder.output = output
+        self.picam2.start()
+        time.sleep(1)
+        self.picam2.set_controls({"AeEnable": False, "AwbEnable": False, "FrameRate": 1.0})
+        # And wait for those settings to take effect
+        time.sleep(1)
+        self.picam2.start_encoder(encoder, quality=quality)
+        time.sleep(self.vidTime)
+        self.picam2.stop_encoder()
+        self.picam2.stop()
+
+        if mergeVideo(self.cfg.storepath,stamps, file):
+            file_l.symlink_to(f"{file}.{VIDEO_FMT}")
+            self._scp_()
+
+    def _shutdown_(self):
+        self._clean_latest_(VIDEO_FMT)
         super()._shutdown_()
 
 class HTTPStreamCapture (CaptureThread):
@@ -367,7 +499,6 @@ class HTTPStreamCapture (CaptureThread):
     def _shutdown_(self):
         self.picam2.close()
         super()._shutdown_()
-
 
 class UDPStreamCapture (CaptureThread):
     """
