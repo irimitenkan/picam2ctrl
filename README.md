@@ -323,7 +323,7 @@ by HASS discovery function via configured MQTT broker.
 
 - picam2ctrl.\< HOSTNAME \>.Snapshot:
 
-  This is a *switch* to enable/disable the picture snapshot function.
+  this is a *switch* to enable/disable the picture snapshot function.
   * when [image.snapshots](# Configuration) is set to 0, picam2ctrl takes picture every [image.snapshots_t](# Configuration) seconds in an endless loop, since there is no switch off request
   * when count is set to x>0,  picam2ctrl takes x pictures every .. s  and stops.
   * when [Motion](#Motion) is disabled picture(s) will be taken immediately
@@ -345,7 +345,7 @@ by HASS discovery function via configured MQTT broker.
 
   This is a *switch* to activate / deactive TimeLapse function for Video resp. Snapshotfunction
   * when active and 'Video' is triggered: a mp4 video with "VidLapsSpeed" factor is created
-  * when active and 'Snapshot' is triggered and SnapshotCounter > 1 : a mp4 video is created by concatenating the snapshot images
+  * when active and 'Snapshot' is triggered and SnapshotCounter > 1 a mp4 video is created by concatenating the snapshot images
   Attention: ffmmeg and mkvmerge must be installed
 
 - picam2ctrl.\< HOSTNAME \>.VidLapseSpeed
