@@ -20,8 +20,8 @@ from optparse import OptionParser
 from picamclient import startClient
 
 __all__ = []
-__version__ = "0.2.5"
-__updated__ = '2024-03-24'
+__version__ = "0.3.0"
+__updated__ = '2024-04-19'
 
 def main(argv=None):
     '''Command line options.'''
