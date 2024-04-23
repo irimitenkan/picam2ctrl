@@ -579,10 +579,14 @@ def startClient(cfgfile: str):
     """
 
     cfg=Config.load_json(cfgfile)
-    logging.basicConfig(level=LOG_LEVEL[cfg.LogLevel],
-                        format='%(asctime)s - %(levelname)s - %(message)s',
-                        datefmt='%H:%M:%S')
-    #validate config only
-    CheckConfig.HasPanTilt(cfg)
-    client = PiCam2Client(cfg)
-    client.startup_client()
+    if cfg:
+        logging.basicConfig(level=LOG_LEVEL[cfg.LogLevel],
+                            format='%(asctime)s - %(levelname)s - %(message)s',
+                            datefmt='%H:%M:%S')
+        #validate config only
+        CheckConfig.HasPanTilt(cfg)
+        client = PiCam2Client(cfg)
+        client.startup_client()
+    else:
+        logging.error(f"load of {cfgfile} has failed - exit()")
+        exit (-5)
