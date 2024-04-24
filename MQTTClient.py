@@ -110,12 +110,14 @@ class MQTTClient (mqtt.Client):
         SUBSCR_TPS = self._setupSubscribeTopics(CLIENT_TPS)
         
         self._setupTopics(CLIENT_TPS,SUBSCR_TPS)
+        self._subTopicsRv = dict((v,k) for k,v in self._subTopics.items())
         self.HASSCONFIGS = self.setupHassDiscoveryConfigs()
         if len(CLIENT_TPS) != len(self.HASSCONFIGS):
             logging.warning("check your Topic client & hassconfig setup: different sizes !")
 
 
         devId=self.setupDevice()
+        self.setupInitValues()
         self.poll() # get 1st values from device
         self._setupHassTopics(devId)
 
@@ -132,11 +134,16 @@ class MQTTClient (mqtt.Client):
 
         return subTps
 
-
     def setupDevice(self):
         """
         setup device used for client communication
         to be implemented by derived class
+        """
+        pass
+
+    def setupInitValues(self):
+        """
+        setup all init values in dict self.TopicValues
         """
         pass
 
@@ -297,8 +304,10 @@ class MQTTClient (mqtt.Client):
         """
         on_message event by broker
         """
-        payload = toStr(message.payload)
-        logging.debug(f"Ignoring message topic {message.topic}:{payload}")
+        if message.topic in self._subTopicsRv:
+            self.TopicValues[self._subTopicsRv[message.topic]]= toStr(message.payload)
+        else:
+            logging.warning(f"Unknown message topic {message.topic}:{toStr(message.payload)}")
 
     def on_disconnect(self, _client, _userdata, rc=0):
         """
