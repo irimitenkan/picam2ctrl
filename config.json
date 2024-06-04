@@ -7,7 +7,22 @@
   "hflip":1,
   "vflip":1,
   "sensitivity": 10,
-  "tuning":"/usr/share/libcamera/ipa/rpi/vc4/imx708.json"
+  "tuning":"/usr/share/libcamera/ipa/rpi/vc4/imx708.json",
+  "ControlOptionsDoc": "https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf",
+  "//AfRange Normal, Macro, Full" :"",
+  "AfRange" :"",
+  "//AfSpeed Normal, Fast":"",
+  "AfSpeed":"",
+  "//AwbMode Auto, Tungsten, Fluorescent, Indoor, Daylight,Cloudy": "",
+  "AwbMode": "",
+  "//Brightness -1.0 .. 1.0": 255,
+  "Brightness": 255,
+  "//Contrast 0.0 ..32.0": 255,
+  "Contrast": 255,
+  "//Saturation 0.0 .. 32.0": 255,
+  "Saturation": 255,
+  "//Sharpness 0.0 .. 16.0": 255,
+  "Sharpness": 255
   },
 
   "timestamp": {

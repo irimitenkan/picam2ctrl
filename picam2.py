@@ -15,12 +15,14 @@ from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
 from picamera2.outputs import FileOutput
 from picamera2 import Picamera2, MappedArray
+from libcamera import controls
 from picamera2.encoders import MJPEGEncoder
 from utils import ThreadEvent, StreamingOutput, StreamingHandler,StreamingServer
 from config import Config
 
 from cv2 import putText
 
+INIT_TIMEOUT = 0.8
 
 LAPS_FILEPATH ="timelapse"
 VIDEO_FMT = "mp4"
@@ -93,6 +95,82 @@ def mergeVideo(destPath,stamps, src):
 
     return False
 
+
+"""
+get camera controls
+"""
+def getCtrls(cfg):
+    ctrls=dict()
+    if len(cfg.camera.AfRange):
+        if "Macro" == cfg.camera.AfRange:
+            AfRange=controls.AfRangeEnum.Macro
+        elif "Full" == cfg.camera.AfRange:
+            AfRange=controls.AfRangeEnum.Full
+        elif "Normal" == cfg.camera.AfRange:
+            AfRange=controls.AfRangeEnum.Normal
+        else:
+            AfRange=controls.AfRangeEnum.Normal
+            logging.warn("Not supported AfRange = " + cfg.camera.AfRange)
+        ctrls.update({"AfRange":AfRange})
+        logging.debug(f"Camera Ctrl AfRange = {AfRange}")
+    else:
+        logging.debug(f"Camera Ctrl AfRange not set")
+
+    if len(cfg.camera.AfSpeed):
+        if "Fast" == cfg.camera.AfSpeed:
+            AfSpeed=controls.AfSpeedEnum.Fast
+        elif "Normal" == cfg.camera.AfSpeed:
+            AfSpeed=controls.AfSpeedEnum.Normal
+        else:
+            logging.warn("Not supported AfSpeed = " + cfg.camera.AfSpeed)
+            AfSpeed=controls.AfSpeedEnum.Normal
+        ctrls.update({"AfSpeed":AfSpeed})
+        logging.debug(f"Camera Ctrl AfSpeed = {AfSpeed}")
+    else:
+        logging.debug(f"Camera Ctrl AfSpeed not set")
+
+    if len(cfg.camera.AwbMode):
+        if "Auto" == cfg.camera.AwbMode:
+            AwbMode=controls.AwbModeEnum.Auto
+        elif "Tungsten" == cfg.camera.AwbMode:
+            AwbMode=controls.AwbModeEnum.Tungsten
+        elif "Fluorescent" == cfg.camera.AwbMode:
+            AwbMode=controls.AwbModeEnum.Fluorescent
+        elif "Indoor" == cfg.camera.AwbMode:
+            AwbMode=controls.AwbModeEnum.Indoor
+        elif "Daylight" == cfg.camera.AwbMode:
+            AwbMode=controls.AwbModeEnum.Daylight
+        elif "Cloudy" == cfg.camera.AwbMode:
+            AwbMode=controls.AwbModeEnum.Cloudy
+        else:
+            logging.warn("Not supported AwbMode = " + cfg.camera.AwbMode)
+            AwbMode=controls.AwbModeEnum.Auto
+        ctrls.update({"AwbMode":AwbMode})
+        logging.debug(f"Camera Ctrl AwbMode = {AwbMode}")
+    else:
+        logging.debug(f"Camera Ctrl AwbMode not set")
+
+    if cfg.camera.Brightness >= -1.0 and cfg.camera.Brightness <= 1.0 :
+        logging.debug(f"Camera Ctrl Brightness = {cfg.camera.Brightness}")
+        ctrls.update({"Brightness":cfg.camera.Brightness})
+    else:
+        logging.debug(f"Camera Ctrl Brightness not set")
+
+    if cfg.camera.Contrast >= 0.0 and cfg.camera.Contrast <= 32.0 :
+        logging.debug(f"Camera Ctrl Contrast = {cfg.camera.Contrast}")
+        ctrls.update({"Contrast":cfg.camera.Contrast})
+    else:
+        logging.debug(f"Camera Ctrl Contrast not set")
+
+    if cfg.camera.Saturation >= 0.0 and cfg.camera.Saturation <= 32.0 :
+        logging.debug(f"Camera Ctrl Saturation = {cfg.camera.Saturation}")
+        ctrls.update({"Saturation":cfg.camera.Saturation})
+    else:
+        logging.debug(f"Camera Ctrl Saturation not set")
+
+    return ctrls
+
+
 class CaptureThread(ThreadEvent):
 
     """
@@ -127,6 +205,14 @@ class CaptureThread(ThreadEvent):
 
         p = Path(self.cfg.storepath)
         p.mkdir(parents=False, exist_ok=True)  # to be created ?
+
+    def _setCtrls_(self):
+        ctrls=getCtrls(self.cfg)
+        if len (ctrls):
+            self.picam2.set_controls(ctrls)
+            time.sleep(1) #must have
+        else:
+            logging.debug("No Camera Ctrls set")
 
     """
     delete "last file links" with specific file suffix in
@@ -272,8 +358,9 @@ class ImageCapture (CaptureThread):
 
         self.picam2.configure(iConfig)
         self.picam2.start()
-        time.sleep(1)
-        
+        time.sleep(INIT_TIMEOUT)
+        self._setCtrls_()
+
         if 0==self.ImgCount: #endless loop until stop event
             i=1
             while not self._stopEvent.is_set():
@@ -364,11 +451,12 @@ class VideoCapture (CaptureThread):
         # ffmpeg -re -i input.mkv -c:v libx264 -maxrate 1000k -bufsize 2000k
         # -an -bsf:v h264_mp4toannexb -g 50 http://localhost:8090/feed1.ffm
         output = FfmpegOutput(str(file), audio=self.cfg.video.audio)
+        self._setCtrls_()
         self.picam2.start_recording(
             encoder, output, quality)  # VERY_HIGH,VERY_LOW,MEDIUM
         time.sleep(self.vidTime)
         self.picam2.stop_recording()
-        time.sleep(1)
+        time.sleep(INIT_TIMEOUT)
         file_l.symlink_to(file)
         #self.picam2.stop()
         self._scp_()
@@ -441,7 +529,8 @@ class VideoCaptureElapse (CaptureThread):
         output = self.TimelapseOutput(file+".h264", stamps, self.vidSpeed)
         encoder.output = output
         self.picam2.start()
-        time.sleep(1)
+        time.sleep(INIT_TIMEOUT)
+        self._setCtrls_()
         self.picam2.set_controls({"AeEnable": False, "AwbEnable": False, "FrameRate": 1.0})
         # And wait for those settings to take effect
         time.sleep(1)
@@ -483,6 +572,7 @@ class HTTPStreamCapture (CaptureThread):
         #encoder = H264Encoder(self.cfg.video.bitrate)
         encoder = MJPEGEncoder()
         #self.picam2.start_recording(JpegEncoder(70), FileOutput(output))
+        self._setCtrls_()
         self.picam2.start_recording(encoder, FileOutput(output))
         address = ('', self.cfg.video.streaming.http_port)
         self.server = StreamingServer(address, StreamingHandler, output,self.cfg.video.streaming.http_index)
@@ -524,6 +614,7 @@ class UDPStreamCapture (CaptureThread):
         self.picam2.configure(vconfig)
         encoder = H264Encoder(self.cfg.video.bitrate)
         output = FfmpegOutput(f"-f mpegts udp://{self.cfg.video.streaming.udp_addr}:{self.cfg.video.streaming.udp_port}",audio=self.cfg.video.audio)
+        self._setCtrls_()
         self.picam2.start_recording(encoder, output)
         while not self._stopEvent.is_set():
             time.sleep(1)
