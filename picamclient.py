@@ -76,10 +76,10 @@ class PiCam2Client (hass.MQTTClient):
         self._snapshot = False
         self._hstream = False
         self._ustream = False
-        self._motionEnabled = True
+        self._motionEnabled = cfg.startup.motion
         self._child = None
-        self._panAngle = 0
-        self._tiltAngle = 0
+        self._panAngle = self.cfg.startup.PanAngle
+        self._tiltAngle = self.cfg.startup.TiltAngle
         self.pan_semaphore = Semaphore()
         self.tilt_semaphore = Semaphore()
         self.manufacturer = "unknown"
@@ -91,11 +91,29 @@ class PiCam2Client (hass.MQTTClient):
         signal.signal(signal.SIGINT, self.daemon_kill)
         signal.signal(signal.SIGTERM, self.daemon_kill)
 
+        self.autoStart()
+
     def clientLoop (self):
         """
         overload default clientLoop behaviour
         """
         pass
+
+    def autoStart(self):
+        """
+        autostart function for clientstart.
+        only one single camera task is allowed
+        """
+        if self.cfg.startup.snap:
+            self._enableSnapShot()
+        elif self.cfg.startup.video:
+            self._enableVideo(False)
+        elif self.cfg.startup.videolapse:
+            self._enableVideo(True)
+        elif self.cfg.startup.httpStream:
+            self._enableHttpStream()
+        elif self.cfg.startup.udpStream:
+            self._enableUdpStream()
 
     def setupClientTopics(self)->dict:
         """
@@ -282,35 +300,37 @@ class PiCam2Client (hass.MQTTClient):
             if TP_REC == tp:
                 val= False
             elif TP_SNAP == tp:
-                val= hass.HASS_STATE_ON if self._snapshot else hass.HASS_STATE_OFF
+                val= hass.HASS_STATE_ON if self.cfg.startup.snap else hass.HASS_STATE_OFF
             elif TP_VIDEO == tp:
-                val= hass.HASS_STATE_ON if self._video else hass.HASS_STATE_OFF
+                val= hass.HASS_STATE_ON if self.cfg.startup.video else hass.HASS_STATE_OFF
             elif TP_TIMELAPSE == tp:
                 val= hass.HASS_STATE_OFF
             elif TP_VIDSPEED == tp:
-                val= 10
+                val= self.cfg.startup.VideoLapseSpeed
             elif TP_HTTP == tp:
-                val= hass.HASS_STATE_ON if self._hstream else hass.HASS_STATE_OFF
+                val= hass.HASS_STATE_ON if self.cfg.startup.httpStream else hass.HASS_STATE_OFF
             elif TP_UDP == tp:
-                val= hass.HASS_STATE_ON if self._ustream else hass.HASS_STATE_OFF
+                val= hass.HASS_STATE_ON if self.cfg.startup.udpStream else hass.HASS_STATE_OFF
             elif TP_MOTION_EN == tp:
-                val= hass.HASS_STATE_ON if self._motionEnabled else hass.HASS_STATE_OFF
+                val= hass.HASS_STATE_ON if self.cfg.startup.motion else hass.HASS_STATE_OFF
             elif TP_MOTION == tp:
                 val = False
             elif TP_PANA == tp and self._PanTiltCam:
-                val= hass.HASS_STATE_ON if self._PanTiltCam.get_Pana_active() else hass.HASS_STATE_OFF
+                if self.cfg.startup.panAuto:
+                    self._PanTiltCam.pan_rotate_auto(True)
+                    val= hass.HASS_STATE_ON# if self._PanTiltCam.get_Pana_active() else hass.HASS_STATE_OFF
             elif TP_PAN == tp:
                 val = self._panAngle
             elif TP_TILT == tp:
                 val = self._tiltAngle
             elif TP_SNAPTI == tp:
-                val = 10 #every 10s
+                val = self.cfg.startup.SnapTimer
             elif TP_VIDEOTI == tp:
-                val = 60# duration in s
+                val = self.cfg.startup.VideoTimer
             elif TP_TILT == tp:
                 val = self._tiltAngle
             elif TP_SNAPCNT == tp:
-                val = 1 # init value , 0 = endöess
+                val = self.cfg.startup.SnapCount #0 = endöess
 
             self.TopicValues[tp]= val
 
@@ -322,6 +342,71 @@ class PiCam2Client (hass.MQTTClient):
             "name": f"{MQTT_CLIENT_ID}.{self._hostname}.PiCamera2"
         }
         return mqtt_device
+
+    def _enableSnapShot(self):
+        """
+        enable Snapshot task: this called by on_message or after startup
+        """
+        if not self._child:
+            logging.debug("enable Snapshot Task")
+            self._child = ImageCapture(self, self.cfg,
+                                       self.TopicValues[TP_SNAPTI],
+                                       self.TopicValues[TP_SNAPCNT],
+                                       self.TopicValues[TP_TIMELAPSE]==hass.HASS_STATE_ON,
+                                       self._motionEnabled)
+            self._snapshot = True
+            self.activeThreads.addThread(self._child)
+            self.publish_state(TP_SNAP)
+            self.TopicValues[TP_REC]=True
+            self.publish_state(TP_REC)
+
+    def _enableVideo(self,bTimeLapse):
+        """
+        enable video task: this called by on_message or after startup
+        """
+        if not self._child:
+            if bTimeLapse:
+                logging.debug("enable VideoLapse Task")
+                self._child = VideoCaptureElapse(self, self.cfg,
+                                           self.TopicValues[TP_VIDEOTI],
+                                           self.TopicValues[TP_VIDSPEED],
+                                           self._motionEnabled)
+            else:
+                logging.debug("enable Video Task")
+                self._child = VideoCapture(self, self.cfg,
+                                           self.TopicValues[TP_VIDEOTI],
+                                           self._motionEnabled)
+            self._video = True
+            self.publish_state(TP_VIDEO)
+            self.activeThreads.addThread(self._child)
+            self.TopicValues[TP_REC]=True
+            self.publish_state(TP_REC)
+
+    def _enableHttpStream(self):
+        """
+        enable http streaming task: this called by on_message or after startup
+        """
+        if not self._child:
+            logging.debug("enable HttpStream Task")
+            self._child = HTTPStreamCapture(self, self.cfg, self._motionEnabled)
+            self._hstream = True
+            self.publish_state(TP_HTTP)
+            self.activeThreads.addThread(self._child)
+            self.TopicValues[TP_REC]=True
+            self.publish_state(TP_REC)
+
+    def _enableUdpStream(self):
+        """
+        enable udp streaming task: this called by on_message or after startup
+        """
+        if not self._child:
+            logging.debug("enable UdpStream Task")
+            self._child = UDPStreamCapture(self, self.cfg, self._motionEnabled)
+            self._ustream = True
+            self.publish_state(TP_UDP)
+            self.activeThreads.addThread(self._child)
+            self.TopicValues[TP_REC]=True
+            self.publish_state(TP_REC)
 
     def gettiltAngle(self,angle:int) -> int:
         fl=1
@@ -400,16 +485,7 @@ class PiCam2Client (hass.MQTTClient):
                     if TP_SNAP == tp:
                         self.TopicValues[tp]= payload
                         if payload == hass.HASS_STATE_ON:
-                            self._child = ImageCapture(self, self.cfg,
-                                                       self.TopicValues[TP_SNAPTI],
-                                                       self.TopicValues[TP_SNAPCNT],
-                                                       self.TopicValues[TP_TIMELAPSE]==hass.HASS_STATE_ON,
-                                                       self._motionEnabled)
-                            self._snapshot = True
-                            self.activeThreads.addThread(self._child)
-                            self.publish_state(TP_SNAP)
-                            self.TopicValues[TP_REC]=True
-                            self.publish_state(TP_REC)
+                            self._enableSnapShot()
                         break
                     elif TP_SNAPTI == tp:
                         self.TopicValues[tp]= payload
@@ -434,40 +510,17 @@ class PiCam2Client (hass.MQTTClient):
                     elif TP_VIDEO == tp:
                         self.TopicValues[tp]= payload
                         if payload == hass.HASS_STATE_ON:
-                            if hass.HASS_STATE_ON==self.TopicValues[TP_TIMELAPSE]:
-                                self._child = VideoCaptureElapse(self, self.cfg,
-                                                           self.TopicValues[TP_VIDEOTI],
-                                                           self.TopicValues[TP_VIDSPEED],
-                                                           self._motionEnabled)
-                            else:
-                                self._child = VideoCapture(self, self.cfg,
-                                                           self.TopicValues[TP_VIDEOTI],
-                                                           self._motionEnabled)
-                            self._video = True
-                            self.publish_state(TP_VIDEO)
-                            self.activeThreads.addThread(self._child)
-                            self.TopicValues[TP_REC]=True
-                            self.publish_state(TP_REC)
+                            self._enableVideo(hass.HASS_STATE_ON==self.TopicValues[TP_TIMELAPSE])
                         break
                     elif TP_HTTP == tp:
                         self.TopicValues[tp]= payload
                         if payload == hass.HASS_STATE_ON:
-                            self._child = HTTPStreamCapture(self, self.cfg, self._motionEnabled)
-                            self._hstream = True
-                            self.publish_state(TP_HTTP)
-                            self.activeThreads.addThread(self._child)
-                            self.TopicValues[TP_REC]=True
-                            self.publish_state(TP_REC)
+                            self._enableHttpStream()
                         break
                     elif TP_UDP == tp:
                         self.TopicValues[tp]= payload
                         if payload == hass.HASS_STATE_ON:
-                            self._child = UDPStreamCapture(self, self.cfg, self._motionEnabled)
-                            self._ustream = True
-                            self.publish_state(TP_UDP)
-                            self.activeThreads.addThread(self._child)
-                            self.TopicValues[TP_REC]=True
-                            self.publish_state(TP_REC)
+                            self._enableUdpStream()
                         break
                     else:
                         logging.warning("unhandled payload" + payload)
@@ -583,6 +636,7 @@ def startClient(cfgfile: str):
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         datefmt='%H:%M:%S')
     #validate config only
-    CheckConfig.HasPanTilt(cfg)
-    client = PiCam2Client(cfg)
-    client.startup_client()
+    if CheckConfig.HasValidStartup(cfg):
+        CheckConfig.HasPanTilt(cfg)
+        client = PiCam2Client(cfg)
+        client.startup_client()

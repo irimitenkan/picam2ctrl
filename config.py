@@ -54,6 +54,33 @@ class CheckConfig (object):
         }
 
     @staticmethod
+    def HasValidStartup(cfg:Config) -> bool:
+        cnt=0
+        enabled=""
+        if cfg.startup.snap:
+            cnt+=1
+            enabled+="Snap,"
+        if cfg.startup.video:
+            cnt+=1
+            enabled+=" Video,"
+        if cfg.startup.videolapse:
+            cnt+=1
+            enabled+=" VideoLapse,"
+        if cfg.startup.httpStream:
+            cnt+=1
+            enabled+=" HttpStream,"
+        if cfg.startup.udpStream:
+            cnt+=1
+            enabled+=" UdpStream"
+
+        if cnt>=2:
+            logging.error("Check your startup settings ! Only ONE function can be enabled during startup.")
+            logging.error(f"But {enabled} are enabled !")
+            return False
+        else:
+            return True
+
+    @staticmethod
     def HasPanTilt(cfg:Config) -> bool:
         if cfg.PanTilt.active in CheckConfig.PAN_TILT_HARDWARE:
             if "None" == cfg.PanTilt.active:

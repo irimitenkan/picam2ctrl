@@ -102,6 +102,22 @@ Example config.json
     "LogLevel":"INFO",
     "storepath": "/home/pi/picam2",
 
+    "startup": {
+        "motion":false,
+        "snap":false,
+        "video":false,
+        "videolapse":false,
+        "httpStream":false,
+        "udpStream":false,
+        "panAuto":false,
+        "SnapTimer":10,
+        "SnapCount":1,
+        "VideoTimer":10,
+        "VideoLapseSpeed":10,
+        "PanAngle":0,
+        "TiltAngle":0
+	},
+
     "camera": {
     "index":0,
     "hflip":1,
@@ -202,6 +218,25 @@ Example config.json
 }
 
   ```
+
+##startup options
+* "motion":false : enable/disable motion detection during startup
+
+only ONE of these camera applications can be enabled (value=true) when the client is started:
+* "snap":false,
+* "video":false,
+* "videolapse":false,
+* "httpStream":false,
+* "udpStream":false,
+* "panAuto":false,
+
+configure initial startup values of client:
+* "SnapTimer":10 : timeout for next snapshot
+* "SnapCount":1: count of snapshot
+* "VideoTimer": video record time length
+* "VideoLapseSpeed":10 : video lapse speed factor
+* "PanAngle":0 : default Pan Angle (depends on HW)
+* "TiltAngle":0 :: default Tilt Angle (depends on HW)
 
 ## camera options
 * "index":0 - the camera idx of connected camera
