@@ -1,4 +1,8 @@
 # Change Log
+
+## v0.3.1
+ * implementation of feature request #10: config options of initial states
+
 ## v0.3.0
  * Feature update: moved image snapshot-timer, -counter and
    video timer settings from config.json to HASS integration
