@@ -1,6 +1,7 @@
 /.settings
+/.venv
 /certs
 __pycache__
 .project
 .pydevproject
-
+*.code-workspace

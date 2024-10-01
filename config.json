@@ -1,103 +1,116 @@
 {
-	"LogLevel":"INFO",
-	"storepath": "/home/pi/picam2",
+  "LogLevel":"INFO",
+  "storepath": "/home/pi/picam2",
 
-	"startup": {
-		"motion":false,
-		"snap":false,
-		"video":false,
-		"videolapse":false,
-		"httpStream":false,
-		"udpStream":false,
-		"panAuto":false,
+  "startup": {
+  	"motion":false,
+  	"snap":false,
+  	"video":false,
+  	"videolapse":false,
+  	"httpStream":false,
+  	"udpStream":false,
+  	"panAuto":false,
 
-		"SnapTimer":10,
-		"SnapCount":1,
-		"VideoTimer":10,
-		"VideoLapseSpeed":10,
-		"PanAngle":0,
-		"TiltAngle":0
-	},
+  	"SnapTimer":10,
+  	"SnapCount":1,
+  	"VideoTimer":10,
+  	"VideoLapseSpeed":10,
+  	"PanAngle":0,
+  	"TiltAngle":0
+  },
 
-	"camera": {
-		"index":0,
-		"hflip":1,
-		"vflip":1,
-		"sensitivity": 10,
-		"tuning":"/usr/share/libcamera/ipa/rpi/vc4/imx708.json"
-	},
+  "camera": {
+  "index":0,
+  "hflip":1,
+  "vflip":1,
+  "sensitivity": 10,
+  "tuning":"/usr/share/libcamera/ipa/rpi/vc4/imx708.json",
 
-	"timestamp": {
-		"enabled":true,
-		"format": "%A %d.%b %Y - %X",
-		"color" : "[255, 255, 0]",
-		"origin" : "[0, 45]",
-		"font" : "FONT_HERSHEY_TRIPLEX",
-		"fscale" : 2,
-		"thickness" : 2
-	},
+  "ControlOptionsDoc": "https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf",
+  "CtrlsEnabled": false,
+  "Tune": {
+  "AwbEnable":true,
+  "//AwbMode Auto, Tungsten, Fluorescent, Indoor, Daylight,Cloudy": "",
+  "AwbMode": "Auto",
+  "Brightness": 0.0,
+  "Contrast": 1.0,
+  "Saturation": 1.0,
+  "Sharpness": 1.0
+   }
+  },
 
-	"image": {
-		"prefix":"snap",
-		"fmt": "jpg",
-		"size": "[4056, 3040]"
-	},
+  "timestamp": {
+   "enabled":true,
+   "format": "%A %d.%b %Y - %X",
+   "color" : "[255, 255, 0]",
+   "origin" : "[0, 45]",
+   "font" : "FONT_HERSHEY_TRIPLEX",
+   "fscale" : 2,
+   "thickness" : 2
+  },
 
-	"video": {
-		"prefix": "videosnap",
-		"bitrate": 1000000,
-		"size" : "[ 1920, 1080]",
-		"quality" : "HIGH",
-		"audio":true,
-		"streaming": {
-		"udp_addr": "localhost",
-		"udp_port": 10001,
-		"http_port": 8010,
-		"http_index":"www/index.html"
-		}
-	},
+  "image": {
+	"prefix":"snap",
+	"fmt": "jpg",
+	"size": "[4056, 3040]"
+  },
 
-	"MQTTBroker":{
-		"host":"localhost",
-		"port": 1883,
-		"//port": 8883,
-		"username":"brokerUserName",
-		"password":"brokerPassWD",
-		"servercafile":"",
-		"//servercafile":"./ca.crt",
-		"clientkeyfile":"",
-		"//clientkeyfile":"./client.key",
-		"clientcertfile":"",
-		"//clientcertfile":"./client.crt"
-	},
+  "video": {
+	"prefix": "videosnap",
+	"bitrate": 1000000,
+	"size" : "[ 1920, 1080]",
+	"quality" : "HIGH",
+	"audio":true,
 
-	"SSHClient":{
-	"enabled":false,
-	"server": "<SSH Server e.g. HASS>",
-	"user" : "<USERNAME>",
-	"dest_path" : "/opt/homeassistant/config/tmp"
-	},
+    "streaming": {
+        "udp_addr": "localhost",
+        "udp_port": 10001,
+        "http_port": 8010,
+        "http_index":"www/index.html"
+	}
+  },
 
-	"PanTilt":{
-		"active":"None",
-		"//active":"WAVESHARE_HAT",
-		"///active":"ULN2003",
-		"speed":"MEDIUM",
-		"Pan":{
-		"angle_max":80,
-		"angle_min":-80,
-		"flip":true
-		},
-		"Tilt":{
-		"angle_low":-26,
-		"angle_high":60,
-		"flip":false
-		},
-		"None":{
+  "MQTTBroker": {
+	"host":"localhost",
+	"port": 1883,
+	"//port": 8883,
+	"username":"brokerUserName",
+	"password":"brokerPassWD",
+	"servercafile":"",
+	"//servercafile":"./ca.crt",
+	"clientkeyfile":"",
+	"//clientkeyfile":"./client.key",
+	"clientcertfile":".",
+	"//clientcertfile":"./client.crt"
+  },
+
+  "SSHClient":{
+        "enabled":false,
+        "server": "<SSH Server e.g. HASS>",
+        "user" : "<USERNAME>",
+        "dest_path" : "/opt/homeassistant/config/tmp"
+  },
+
+  "PanTilt":{
+     "active":"None",
+     "//active":"WAVESHARE_HAT",
+     "///active":"ULN2003",
+     "speed":"MEDIUM",
+      "Pan":{
+          "angle_max":80,
+          "angle_min":-80,
+          "flip":true
+      },
+      "Tilt":{
+          "angle_low":-26,
+          "angle_high":60,
+          "flip":false
+      },
+	"None":{
 		"//":"PanTilt is disabled"
 		},
 
-		"ULN2003":{
+      "ULN2003":{
 		"Pan_enabled":true,
 		"Tilt_enabled":false,
 		"check":true,
@@ -105,15 +118,18 @@
 		"Pan_GPIO_PinB": 22,
 		"Pan_GPIO_PinC": 23,
 		"Pan_GPIO_PinD": 24,
+
 		"Tilt_GPIO_PinA": 13,
 		"Tilt_GPIO_PinB": 15,
 		"Tilt_GPIO_PinC": 16,
 		"Tilt_GPIO_PinD": 18
-		},
+	},
 
-		"WAVESHARE_HAT":{
-		"sensorRefresh":60
-		}
-	}
+	"WAVESHARE_HAT":{
+                       "sensorRefresh":60
+			}
+
+  }
 
 }
+

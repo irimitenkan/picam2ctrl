@@ -36,10 +36,11 @@ HASS_DISCOVERY_PREFIX = 'homeassistant'
 
 HASS_COMPONENT_BINARY_SENSOR = "binary_sensor"
 HASS_COMPONENT_SENSOR = "sensor"
-HASS_COMPONENT_BUTTON = "button"
+#HASS_COMPONENT_BUTTON = "button"
 HASS_COMPONENT_SWITCH = "switch"
 HASS_COMPONENT_NUMBER = "number"
 HASS_COMPONENT_MOTION = "motion"
+HASS_COMPONENT_SELECT = "select"
 
 HASS_CLASS_DISTANCE = "distance"
 HASS_CLASS_ILLUMINANCE = "illuminance"
@@ -49,6 +50,7 @@ HASS_CLASS_SPEED = "speed"
 HASS_CLASS_RUNNING = "running"
 HASS_CLASS_MOTION = HASS_COMPONENT_MOTION
 HASS_CLASS_SWITCH = HASS_COMPONENT_SWITCH
+HASS_CLASS_SELECT = HASS_COMPONENT_SELECT
 HASS_CLASS_NONE = None
 
 HASS_STATE_ON = "on"
@@ -70,6 +72,7 @@ HASS_CONFIG_STEP = "step"
 HASS_CONFIG_MODE = "mode"
 HASS_CONFIG_CMD_TP = "command_topic"
 HASS_CONFIG_ATTR = "json_attributes_topic"
+HASS_CONFIG_OPTIONS = "options"
 
 HASS_CMD_SET = "set"
 
@@ -110,12 +113,14 @@ class MQTTClient (mqtt.Client):
         SUBSCR_TPS = self._setupSubscribeTopics(CLIENT_TPS)
         
         self._setupTopics(CLIENT_TPS,SUBSCR_TPS)
+        self._subTopicsRv = dict((v,k) for k,v in self._subTopics.items())
         self.HASSCONFIGS = self.setupHassDiscoveryConfigs()
         if len(CLIENT_TPS) != len(self.HASSCONFIGS):
             logging.warning("check your Topic client & hassconfig setup: different sizes !")
 
 
         devId=self.setupDevice()
+        self.setupInitValues()
         self.poll() # get 1st values from device
         self._setupHassTopics(devId)
 
@@ -127,16 +132,22 @@ class MQTTClient (mqtt.Client):
         
         for tp in clientTps:
             if HASS_COMPONENT_SWITCH == clientTps[tp] or \
-               HASS_COMPONENT_NUMBER == clientTps[tp]:
+               HASS_COMPONENT_NUMBER == clientTps[tp] or \
+               HASS_COMPONENT_SELECT == clientTps[tp]:
                 subTps.update({tp:HASS_CMD_SET})
 
         return subTps
-
 
     def setupDevice(self):
         """
         setup device used for client communication
         to be implemented by derived class
+        """
+        pass
+
+    def setupInitValues(self):
+        """
+        setup all init values in dict self.TopicValues
         """
         pass
 
@@ -197,7 +208,7 @@ class MQTTClient (mqtt.Client):
             
             if HASS_CONFIG_DEVICE_CLASS not in config_tp:
                 config_tp.update({HASS_CONFIG_DEVICE_CLASS : HASS_CLASS_NONE })
-                logging.warn (f"no device class defined for {tp}, using default 'None'")
+                logging.warning (f"no device class defined for {tp}, using default 'None'")
             if config_tp[HASS_CONFIG_DEVICE_CLASS]==HASS_CLASS_SWITCH:
                 config_tp.update({HASS_CONFIG_PAYLOAD_ON : HASS_STATE_ON })
                 config_tp.update({HASS_CONFIG_PAYLOAD_OFF : HASS_STATE_OFF })
@@ -284,7 +295,10 @@ class MQTTClient (mqtt.Client):
         """ publish all state topics """
         for t in self._stTopics:
             logging.debug(f"publish_state_topics t={t}")
-            val = self.HASSCONFIGS[t][HASS_CONFIG_DEVICE_CLASS]
+            if HASS_CONFIG_DEVICE_CLASS in self.HASSCONFIGS[t]:
+                val = self.HASSCONFIGS[t][HASS_CONFIG_DEVICE_CLASS]
+            else:
+                val=HASS_CLASS_NONE
             if HASS_CLASS_ILLUMINANCE == val:
                 self.publish_state(self._stTopics[t], encode_json(
                     {f"{val}": self.TopicValues[t]}))
@@ -297,8 +311,10 @@ class MQTTClient (mqtt.Client):
         """
         on_message event by broker
         """
-        payload = toStr(message.payload)
-        logging.debug(f"Ignoring message topic {message.topic}:{payload}")
+        if message.topic in self._subTopicsRv:
+            self.TopicValues[self._subTopicsRv[message.topic]]= toStr(message.payload)
+        else:
+            logging.warning(f"Unknown message topic {message.topic}:{toStr(message.payload)}")
 
     def on_disconnect(self, _client, _userdata, rc=0):
         """
@@ -371,7 +387,7 @@ class MQTTClient (mqtt.Client):
             https://www.home-assistant.io/integrations/mqtt#mqtt-discovery
             https://www.home-assistant.io/integrations/switch.mqtt/#configuration-variables
             allowed components: https://github.com/home-assistant/core/blob/dev/homeassistant/const.py
-            https://www.home-assistant.io/docs/configuration/customizing-devices/#device-class
+            https://www.home-assistant.io/integrations/homeassistant/#device-class
             https://www.home-assistant.io/integrations/switch.mqtt/
             https://developers.home-assistant.io/docs/device_registry_index/
     

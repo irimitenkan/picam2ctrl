@@ -15,12 +15,15 @@ from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FfmpegOutput
 from picamera2.outputs import FileOutput
 from picamera2 import Picamera2, MappedArray
+from picamera2 import CameraConfiguration, StreamConfiguration, Controls
+from libcamera import controls
 from picamera2.encoders import MJPEGEncoder
 from utils import ThreadEvent, StreamingOutput, StreamingHandler,StreamingServer
 from config import Config
 
 from cv2 import putText
 
+INIT_TIMEOUT = 0.8
 
 LAPS_FILEPATH ="timelapse"
 VIDEO_FMT = "mp4"
@@ -101,11 +104,24 @@ class CaptureThread(ThreadEvent):
     provides motion detection & time stamp generation
     
     """
-    def __init__(self, parent: ThreadEvent, cfg: Config, bMotion=False):
+
+    ctrlMapAwbMode={
+        "Auto":libcamera.controls.AwbModeEnum.Auto,
+        "Tungsten":libcamera.controls.AwbModeEnum.Tungsten,
+        "Fluorescent":libcamera.controls.AwbModeEnum.Fluorescent,
+        "Indoor":libcamera.controls.AwbModeEnum.Indoor,
+        "Daylight":libcamera.controls.AwbModeEnum.Daylight,
+        "Cloudy":libcamera.controls.AwbModeEnum.Cloudy
+        }
+
+    #libcamera.controls.AwbEnable
+    def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict = None, bMotion:bool=False):
         super().__init__(parent)
         self.cfg = cfg
         self._bMotion=bMotion
         logging.debug(f"Capture Motion = {bMotion}")
+        self.actCtrls=ctrls.copy()
+        self.mapCtrls()
 
         self._size = (320, 200)
         self.picam2 = Picamera2(cfg.camera.index)
@@ -126,7 +142,27 @@ class CaptureThread(ThreadEvent):
             self._font = FONTS.get(cfg.timestamp.font, 0)
 
         p = Path(self.cfg.storepath)
-        p.mkdir(parents=False, exist_ok=True)  # to be created ?
+        try:
+            p.mkdir(parents=False, exist_ok=True)  # to be created ?
+        except Exception as e:
+            logging.error(f"{str(e)}, configured store path not accessable")
+
+    def mapCtrls(self):
+        self.actCtrls["AwbMode"]=self.ctrlMapAwbMode[self.actCtrls["AwbMode"]]
+
+    def _setCtrls_(self):
+        if len(self.actCtrls)>0:
+            logging.debug(f"picam2.set_controls={self.actCtrls}")
+            self.picam2.set_controls(self.actCtrls)
+            time.sleep(2) #must have
+        else:
+            logging.debug(f"picam2.set_controls not set")
+
+    def updateCtrls(self,ctrls,update=True):
+        self.actCtrls=ctrls.copy()
+        self.mapCtrls()
+        if update:
+            self._setCtrls_()
 
     """
     delete "last file links" with specific file suffix in
@@ -142,7 +178,11 @@ class CaptureThread(ThreadEvent):
             for fn in p.glob('*.' + suffix):
                 fn.unlink()
         else:
-            p.mkdir(parents=False, exist_ok=True)  # to be created ?
+            try:
+                p.mkdir(parents=False, exist_ok=True)  # to be created ?
+            except Exception as e:
+                logging.error(f"{str(e)}, configured store path not accessable")
+
 
     """
     simple scp execution, copies complete directory content client -> server 
@@ -245,9 +285,8 @@ class ImageCapture (CaptureThread):
     """
     def __repr__(self):
         return "ImageCapture" 
-    
-    def __init__(self, parent: ThreadEvent, cfg: Config, iTime, iCount, bTimeLapse, bMotion):
-        super().__init__(parent, cfg, bMotion)
+    def __init__(self, parent: ThreadEvent, cfg: Config, ctrls, bMotion, iTime, iCount, bTimeLapse):
+        super().__init__(parent, cfg, ctrls, bMotion)
         self._size = tuple(json.loads(cfg.image.size))
         self.ImgCount=int(iCount)
         self.ImgTime=int(iTime)
@@ -272,8 +311,9 @@ class ImageCapture (CaptureThread):
 
         self.picam2.configure(iConfig)
         self.picam2.start()
-        time.sleep(1)
-        
+        time.sleep(INIT_TIMEOUT)
+        self._setCtrls_()
+
         if 0==self.ImgCount: #endless loop until stop event
             i=1
             while not self._stopEvent.is_set():
@@ -335,8 +375,8 @@ class VideoCapture (CaptureThread):
     def __repr__(self):
         return "VideoCapture"
 
-    def __init__(self, parent: ThreadEvent, cfg: Config, vTime, bMotion):
-        super().__init__(parent, cfg, bMotion)
+    def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict, bMotion:bool, vTime:int):
+        super().__init__(parent, cfg, ctrls, bMotion)
         logging.debug("creating VideoCapture")
         self._size = tuple(json.loads(cfg.video.size))
         self.vidTime=int(vTime)
@@ -364,11 +404,12 @@ class VideoCapture (CaptureThread):
         # ffmpeg -re -i input.mkv -c:v libx264 -maxrate 1000k -bufsize 2000k
         # -an -bsf:v h264_mp4toannexb -g 50 http://localhost:8090/feed1.ffm
         output = FfmpegOutput(str(file), audio=self.cfg.video.audio)
+        self._setCtrls_()
         self.picam2.start_recording(
             encoder, output, quality)  # VERY_HIGH,VERY_LOW,MEDIUM
         time.sleep(self.vidTime)
         self.picam2.stop_recording()
-        time.sleep(1)
+        time.sleep(INIT_TIMEOUT)
         file_l.symlink_to(file)
         #self.picam2.stop()
         self._scp_()
@@ -405,8 +446,8 @@ class VideoCaptureElapse (CaptureThread):
     def __repr__(self):
         return "VideoCapture"
 
-    def __init__(self, parent: ThreadEvent, cfg: Config, vTime, vSpeed, bMotion):
-        super().__init__(parent, cfg, bMotion)
+    def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict, bMotion:bool, vTime:int, vSpeed:int):
+        super().__init__(parent, cfg, ctrl, bMotion)
         logging.debug("creating VideoCapture")
         self._size = tuple(json.loads(cfg.video.size))
         self.vidTime=int(vTime)
@@ -441,7 +482,8 @@ class VideoCaptureElapse (CaptureThread):
         output = self.TimelapseOutput(file+".h264", stamps, self.vidSpeed)
         encoder.output = output
         self.picam2.start()
-        time.sleep(1)
+        time.sleep(INIT_TIMEOUT)
+        self._setCtrls_()
         self.picam2.set_controls({"AeEnable": False, "AwbEnable": False, "FrameRate": 1.0})
         # And wait for those settings to take effect
         time.sleep(1)
@@ -465,8 +507,8 @@ class HTTPStreamCapture (CaptureThread):
     def __repr__(self):
         return "HTTPStreamCapture" 
     
-    def __init__(self, parent: ThreadEvent, cfg: Config, bMotion):
-        super().__init__(parent, cfg, bMotion)
+    def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict, bMotion:bool):
+        super().__init__(parent, cfg, ctrls, bMotion)
         logging.debug("creating HttpStreamCapture")
         self._size = tuple(json.loads(self.cfg.video.size))
 
@@ -483,6 +525,7 @@ class HTTPStreamCapture (CaptureThread):
         #encoder = H264Encoder(self.cfg.video.bitrate)
         encoder = MJPEGEncoder()
         #self.picam2.start_recording(JpegEncoder(70), FileOutput(output))
+        self._setCtrls_()
         self.picam2.start_recording(encoder, FileOutput(output))
         address = ('', self.cfg.video.streaming.http_port)
         self.server = StreamingServer(address, StreamingHandler, output,self.cfg.video.streaming.http_index)
@@ -508,8 +551,8 @@ class UDPStreamCapture (CaptureThread):
     def __repr__(self):
         return "UDPStreamCapture" 
     
-    def __init__(self, parent: ThreadEvent, cfg: Config, bMotion):
-        super().__init__(parent, cfg,bMotion)
+    def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict, bMotion:bool):
+        super().__init__(parent, cfg,ctrls, bMotion)
         logging.debug("creating UDPStreamCapture")
         self.__sock = None
         self._size = tuple(json.loads(cfg.video.size))
@@ -524,6 +567,7 @@ class UDPStreamCapture (CaptureThread):
         self.picam2.configure(vconfig)
         encoder = H264Encoder(self.cfg.video.bitrate)
         output = FfmpegOutput(f"-f mpegts udp://{self.cfg.video.streaming.udp_addr}:{self.cfg.video.streaming.udp_port}",audio=self.cfg.video.audio)
+        self._setCtrls_()
         self.picam2.start_recording(encoder, output)
         while not self._stopEvent.is_set():
             time.sleep(1)
@@ -534,4 +578,3 @@ class UDPStreamCapture (CaptureThread):
     def _shutdown_(self):
         self.picam2.close()
         super()._shutdown_()
-

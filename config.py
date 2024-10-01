@@ -40,8 +40,14 @@ class Config(object):
     @staticmethod
     def load_json(path: str):
         with open(path, "r") as f:
-            result = Config.__load__(json.loads(f.read()))
-        return result
+            try:
+                result = Config.__load__(json.loads(f.read()))
+                return result
+            except json.decoder.JSONDecodeError as e:
+                logging.error(f"{path}: {e}")
+            except TypeError as e:
+                logging.error(f"{path}: {e}")
+        return None
 
 
 
