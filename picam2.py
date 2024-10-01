@@ -148,7 +148,8 @@ class CaptureThread(ThreadEvent):
             logging.error(f"{str(e)}, configured store path not accessable")
 
     def mapCtrls(self):
-        self.actCtrls["AwbMode"]=self.ctrlMapAwbMode[self.actCtrls["AwbMode"]]
+        if len (self.actCtrls) > 0:
+            self.actCtrls["AwbMode"]=self.ctrlMapAwbMode[self.actCtrls["AwbMode"]]
 
     def _setCtrls_(self):
         if len(self.actCtrls)>0:
