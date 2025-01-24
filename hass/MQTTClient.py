@@ -30,7 +30,7 @@ RETAIN = True
 """
 default sleep time
 """
-REFRESH = 60 
+REFRESH = 60
 # hostname = socket.gethostname()
 HASS_DISCOVERY_PREFIX = 'homeassistant'
 
@@ -83,19 +83,18 @@ def encode_json(value) -> str:
 
 def toStr(bstr:bytes)->str:
     return str(bstr, encoding='utf-8')
-    
+
 class MQTTClient (mqtt.Client):
     """ MQTT client class with HASS discovery support """
 
-    def __init__(self, cfg, ClientID) -> None:
+    def __init__(self, cfg, ClientID,HostTpID):
         super().__init__(ClientID)
 
         self.cfg = cfg
         self._disconnectRQ = False
         self._disconnectCnt = 0
-        self._hostname = self._getHostTopicId()
+        self._hostTpId = self._getHostTopicId(HostTpID)
         self._connected = False
-        
         self.TopicValues = dict()
         self.TopicConfigs = dict()
 
@@ -104,14 +103,14 @@ class MQTTClient (mqtt.Client):
         self._subTopics = dict()
         self._hassTopics = dict()
 
-        self.baseTopic = f"{ClientID}/{self._hostname}"
+        self.baseTopic = f"{ClientID}/{self._hostTpId}"
         signal.signal(signal.SIGINT, self.daemon_kill)
         signal.signal(signal.SIGTERM, self.daemon_kill)
         self._ONLINE_STATE = f"{self.baseTopic}/online"
 
         CLIENT_TPS = self.setupClientTopics()
         SUBSCR_TPS = self._setupSubscribeTopics(CLIENT_TPS)
-        
+
         self._setupTopics(CLIENT_TPS,SUBSCR_TPS)
         self._subTopicsRv = dict((v,k) for k,v in self._subTopics.items())
         self.HASSCONFIGS = self.setupHassDiscoveryConfigs()
@@ -129,7 +128,6 @@ class MQTTClient (mqtt.Client):
         get a dict() which defines the required subscribe topics
         """
         subTps = dict()
-        
         for tp in clientTps:
             if HASS_COMPONENT_SWITCH == clientTps[tp] or \
                HASS_COMPONENT_NUMBER == clientTps[tp] or \
@@ -179,11 +177,11 @@ class MQTTClient (mqtt.Client):
         get default client refresh polling rate
         """
         return REFRESH
-    
+
     def poll(self):
         """
         poll data from connected device
-        to be implemented by derived class 
+        to be implemented by derived class
         """
         pass
 
@@ -193,7 +191,7 @@ class MQTTClient (mqtt.Client):
         """
         for tp in self._stTopics: #resp. available CLIENT_TPS
             unique_attr = f"{self.baseTopic}/{tp}"
-            name = f"{toStr(self._client_id)}.{self._hostname}.{tp}"
+            name = f"{toStr(self._client_id)}.{self._hostTpId}.{tp}"
             # very generic config attributs
             config_tp = {
                 "device": devId,
@@ -205,7 +203,6 @@ class MQTTClient (mqtt.Client):
             # non generic attributs
             if tp in self.HASSCONFIGS:
                 config_tp.update(self.HASSCONFIGS[tp])
-            
             if HASS_CONFIG_DEVICE_CLASS not in config_tp:
                 config_tp.update({HASS_CONFIG_DEVICE_CLASS : HASS_CLASS_NONE })
                 logging.warning (f"no device class defined for {tp}, using default 'None'")
@@ -221,7 +218,6 @@ class MQTTClient (mqtt.Client):
                 config_tp.update({HASS_CONFIG_VALUE_TEMPLATE :"{{ value_json.illuminance  }}"})
                 config_tp.update({HASS_CONFIG_STATECLASS : "measurement"})
                 config_tp.update({HASS_CONFIG_UNIT : "lx"})
-                
             self.TopicConfigs[tp] = config_tp
         self.poll()
 
@@ -241,15 +237,18 @@ class MQTTClient (mqtt.Client):
         self._avTopics[tp] = f"{self.baseTopic}/{tp}/available"
         self._stTopics[tp] = f"{self.baseTopic}/{tp}/state"
         # hassTopic pattern :<discovery_prefix>/<component>/[<node_id>/]<object_id>/config
-        self._hassTopics[tp] = f"{HASS_DISCOVERY_PREFIX}/{deviceclass}/{self._hostname}/{tp}/config"
+        self._hassTopics[tp] = f"{HASS_DISCOVERY_PREFIX}/{deviceclass}/{self._hostTpId}/{tp}/config"
         if subcmd:
             self._subTopics[tp] = f"{self.baseTopic}/{tp}/{subcmd}"
 
-    def _getHostTopicId(self):
+    def _getHostTopicId(self,HostTopicID):
         """
         defines the node_id in hass discovery topic
         """
-        return socket.gethostname()
+        if "%HOSTNAME" == HostTopicID:
+            return socket.gethostname()
+        else:
+            return HostTopicID
 
     def daemon_kill(self, *_args):
         """
@@ -373,7 +372,6 @@ class MQTTClient (mqtt.Client):
         if not payload and topicId in self._stTopics:
             tp=self._stTopics[topicId]
             payload=self.TopicValues[topicId]
-        
         logging.debug(f"publish state:{str(tp)}:{payload}")
         self.publish(topic=tp, payload=payload, retain=RETAIN)
 
@@ -390,7 +388,6 @@ class MQTTClient (mqtt.Client):
             https://www.home-assistant.io/integrations/homeassistant/#device-class
             https://www.home-assistant.io/integrations/switch.mqtt/
             https://developers.home-assistant.io/docs/device_registry_index/
-    
         """
         logging.debug("publishing HASS discoveries")
         for cfg in self.TopicConfigs:

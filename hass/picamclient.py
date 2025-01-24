@@ -21,7 +21,6 @@ from pantilt.waveshare.servomotors import PanTiltServoMotors
 from pantilt.waveshare.lightsensor import LightSensor
 from hass.picamTopics import TP
 
-MQTT_CLIENT_ID = 'picam2ctrl'
 """
 QOS: 0 => fire and forget A -> B
 QOS: 1 => at leat one - msg will be send
@@ -69,7 +68,7 @@ class PiCam2Client (hass.MQTTClient):
         self._lightSensor= None
         self.tps=TP(cfg)
         self.actCtrls=dict() # empty
-        super().__init__(cfg, MQTT_CLIENT_ID)
+        super().__init__(cfg, cfg.MQTTPrefix,cfg.HASS_Node_ID)
 
         signal.signal(signal.SIGINT, self.daemon_kill)
         signal.signal(signal.SIGTERM, self.daemon_kill)
@@ -150,11 +149,11 @@ class PiCam2Client (hass.MQTTClient):
             self.activeThreads.addThread(self._PanTiltCam)
 
         mqtt_device = {
-            "identifiers": [f"{MQTT_CLIENT_ID}_{self._hostname}"],
+            "identifiers": [f"{self.cfg.MQTTPrefix}_{self._hostTpId}"],
             "manufacturer": self.manufacturer,
             "model": self.model,
             "sw_version": self.swversion,
-            "name": f"{MQTT_CLIENT_ID}.{self._hostname}.PiCamera2"
+            "name": f"{self.cfg.MQTTPrefix}.{self._hostTpId}"
         }
         return mqtt_device
 

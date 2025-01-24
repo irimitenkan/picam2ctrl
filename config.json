@@ -1,22 +1,27 @@
 {
   "LogLevel":"INFO",
+  "MQTTPrefix":"picam2ctrl",
+  "//MQTTPrefix":"p2ctrl",
+  "HASS_Node_ID":"%HOSTNAME",
+  "//HASS_Node_ID":"SELF_DEFINED_UNIQUE_ID",
+
   "storepath": "/home/pi/picam2",
 
   "startup": {
-  	"motion":false,
-  	"snap":false,
-  	"video":false,
-  	"videolapse":false,
-  	"httpStream":false,
-  	"udpStream":false,
-  	"panAuto":false,
+        "motion":false,
+        "snap":false,
+        "video":false,
+        "videolapse":false,
+        "httpStream":false,
+        "udpStream":false,
+        "panAuto":false,
 
-  	"SnapTimer":10,
-  	"SnapCount":1,
-  	"VideoTimer":10,
-  	"VideoLapseSpeed":10,
-  	"PanAngle":0,
-  	"TiltAngle":0
+        "SnapTimer":10,
+        "SnapCount":1,
+        "VideoTimer":10,
+        "VideoLapseSpeed":10,
+        "PanAngle":0,
+        "TiltAngle":0
   },
 
   "camera": {
@@ -30,7 +35,7 @@
   "CtrlsEnabled": false,
   "Tune": {
   "AwbEnable":true,
-  "//AwbMode Auto, Tungsten, Fluorescent, Indoor, Daylight,Cloudy": "",
+  "//AwbMode: Auto, Tungsten, Fluorescent, Indoor, Daylight,Cloudy": "",
   "AwbMode": "Auto",
   "Brightness": 0.0,
   "Contrast": 1.0,
@@ -132,4 +137,3 @@
   }
 
 }
-
