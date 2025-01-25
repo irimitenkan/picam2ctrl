@@ -93,7 +93,6 @@ class MQTTClient (mqtt.Client):
         self.cfg = cfg
         self._disconnectRQ = False
         self._disconnectCnt = 0
-        self._hostTpId = self._getHostTopicId(HostTpID)
         self._connected = False
         self.TopicValues = dict()
         self.TopicConfigs = dict()
@@ -103,6 +102,7 @@ class MQTTClient (mqtt.Client):
         self._subTopics = dict()
         self._hassTopics = dict()
 
+        self._hostTpId = self._getHostTopicId(HostTpID)
         self.baseTopic = f"{ClientID}/{self._hostTpId}"
         signal.signal(signal.SIGINT, self.daemon_kill)
         signal.signal(signal.SIGTERM, self.daemon_kill)

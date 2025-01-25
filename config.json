@@ -1,7 +1,5 @@
 {
   "LogLevel":"INFO",
-  "MQTTPrefix":"picam2ctrl",
-  "//MQTTPrefix":"p2ctrl",
   "HASS_Node_ID":"%HOSTNAME",
   "//HASS_Node_ID":"SELF_DEFINED_UNIQUE_ID",
 
