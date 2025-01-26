@@ -114,6 +114,11 @@ class CaptureThread(ThreadEvent):
         "Cloudy":libcamera.controls.AwbModeEnum.Cloudy
         }
 
+    ctrlMapAwbEnable={
+        "off":False,
+        "on":True
+        }
+
     #libcamera.controls.AwbEnable
     def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict = None, bMotion:bool=False):
         super().__init__(parent)
@@ -121,6 +126,7 @@ class CaptureThread(ThreadEvent):
         self._bMotion=bMotion
         logging.debug(f"Capture Motion = {bMotion}")
         self.actCtrls=ctrls.copy()
+        self.defaultCtrls=ctrls.copy()
         self.mapCtrls()
 
         self._size = (320, 200)
@@ -150,6 +156,10 @@ class CaptureThread(ThreadEvent):
     def mapCtrls(self):
         if len (self.actCtrls) > 0:
             self.actCtrls["AwbMode"]=self.ctrlMapAwbMode[self.actCtrls["AwbMode"]]
+            if self.actCtrls['AwbEnable'] in self.ctrlMapAwbEnable:
+                self.actCtrls["AwbEnable"]=self.ctrlMapAwbEnable[self.actCtrls["AwbEnable"]]
+        else:
+            self.actCtrls=self.defaultCtrls
 
     def _setCtrls_(self):
         if len(self.actCtrls)>0:
@@ -448,7 +458,7 @@ class VideoCaptureElapse (CaptureThread):
         return "VideoCapture"
 
     def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict, bMotion:bool, vTime:int, vSpeed:int):
-        super().__init__(parent, cfg, ctrl, bMotion)
+        super().__init__(parent, cfg, ctrls, bMotion)
         logging.debug("creating VideoCapture")
         self._size = tuple(json.loads(cfg.video.size))
         self.vidTime=int(vTime)
