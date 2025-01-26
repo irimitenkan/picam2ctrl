@@ -69,7 +69,7 @@ class PiCam2Client (hass.MQTTClient):
         self._lightSensor= None
         self.tps=TP(cfg)
         self.actCtrls=dict() # empty
-        super().__init__(cfg, MQTT_CLIENT_ID)
+        super().__init__(cfg, MQTT_CLIENT_ID,cfg.HASS_Node_ID)
 
         signal.signal(signal.SIGINT, self.daemon_kill)
         signal.signal(signal.SIGTERM, self.daemon_kill)
@@ -150,11 +150,11 @@ class PiCam2Client (hass.MQTTClient):
             self.activeThreads.addThread(self._PanTiltCam)
 
         mqtt_device = {
-            "identifiers": [f"{MQTT_CLIENT_ID}_{self._hostname}"],
+            "identifiers": [f"{self._hostTpId}"],
             "manufacturer": self.manufacturer,
             "model": self.model,
             "sw_version": self.swversion,
-            "name": f"{MQTT_CLIENT_ID}.{self._hostname}.PiCamera2"
+            "name": f"{self._hostTpId}"
         }
         return mqtt_device
 
@@ -317,10 +317,9 @@ class PiCam2Client (hass.MQTTClient):
                         if self._child:
                             self._child.updateCtrls(self.actCtrls)
                     elif payload == hass.HASS_STATE_OFF:
-                        pass
-                        #elf.actCtrls = dict() #empty
-                        #f self._child: #TODO reset to default
-                        #   self._child.updateCtrls(self.actCtrls)
+                        self.actCtrls = dict()
+                        if self._child:
+                            self._child.updateCtrls(self.actCtrls)
                     break
 
                 elif tp in self.tps.TuneCtrls:

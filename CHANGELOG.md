@@ -1,5 +1,11 @@
 # Change Log
 
+## v0.3.3 - v0.3.4
+
+* #14 topics and  entids optimized
+* merge #12
+* tune ctrl fixes
+
 ## v0.3.2
 
 * implementation of feature request #11 part 1: AWB controls added
