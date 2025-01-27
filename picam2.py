@@ -418,7 +418,11 @@ class VideoCapture (CaptureThread):
         self._setCtrls_()
         self.picam2.start_recording(
             encoder, output, quality)  # VERY_HIGH,VERY_LOW,MEDIUM
-        time.sleep(self.vidTime)
+        if 0==self.vidTime:
+            while not self._stopEvent.is_set():
+                time.sleep(1)
+        else:
+            time.sleep(self.vidTime)
         self.picam2.stop_recording()
         time.sleep(INIT_TIMEOUT)
         file_l.symlink_to(file)
@@ -429,6 +433,50 @@ class VideoCapture (CaptureThread):
         self._clean_latest_(VIDEO_FMT)
         super()._shutdown_()
 
+class RtspCapture (CaptureThread):
+    """
+    RtspCapture capture (h264) videos  with / without audio
+    """
+
+    def __repr__(self):
+        return "RtspCapture"
+
+    def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict, bMotion:bool, vTime:int):
+        super().__init__(parent, cfg, ctrls, bMotion)
+        logging.debug("creating RtspCapture")
+        self._size = tuple(json.loads(cfg.video.size))
+        self.vidTime=int(vTime)
+    def _single_capture_(self):
+        quality=QUALITY.get(self.cfg.video.quality,Quality.HIGH)
+        logging.debug("RtspCapture: _single_capture_")
+        vconfig = self.picam2.create_video_configuration(
+            main={
+                "size": self._size,
+                "format": "RGB888"},
+            transform=libcamera.Transform(
+                hflip=self.cfg.camera.hflip,
+                vflip=self.cfg.camera.vflip),
+            controls={'FrameRate': 30})
+        self.picam2.configure(vconfig)
+        encoder = H264Encoder(repeat=True, iperiod=30, framerate=30, enable_sps_framerate=True)
+
+        ref=self.cfg.video.streaming
+        str_rtsp="-f rtsp -rtsp_transport tcp rtsp://"
+        if len(self.cfg.video.streaming.rtsp_user):
+            str_rtsp=str_rtsp+f"{ref.rtsp_user}:{ref.rtsp_passwd}@"
+        str_rtsp=str_rtsp+f"{ref.rtsp_server}:{ref.rtsp_port}/{ref.rtsp_stream}"
+        logging.debug(f"FfmpegOutput={str_rtsp},audio={self.cfg.video.audio}")
+        output = FfmpegOutput(str_rtsp, audio=self.cfg.video.audio)
+        self._setCtrls_()
+        self.picam2.start_recording(
+            encoder, output, quality)  # VERY_HIGH,VERY_LOW,MEDIUM
+        logging.debug("In case of error 'default: No such process' check your audio settings")
+        if 0==self.vidTime:
+            while not self._stopEvent.is_set():
+                time.sleep(INIT_TIMEOUT)
+        else:
+            time.sleep(self.vidTime)
+        self.picam2.stop_recording()
 
 class VideoCaptureElapse (CaptureThread):
     """
@@ -462,6 +510,7 @@ class VideoCaptureElapse (CaptureThread):
         logging.debug("creating VideoCapture")
         self._size = tuple(json.loads(cfg.video.size))
         self.vidTime=int(vTime)
+
         self.vidSpeed=int(vSpeed)
         self._clean_latest_(VIDEO_FMT)
 
@@ -499,7 +548,11 @@ class VideoCaptureElapse (CaptureThread):
         # And wait for those settings to take effect
         time.sleep(1)
         self.picam2.start_encoder(encoder, quality=quality)
-        time.sleep(self.vidTime)
+        if 0==self.vidTime:
+            while not self._stopEvent.is_set():
+                time.sleep(1)
+        else:
+            time.sleep(self.vidTime)
         self.picam2.stop_encoder()
         self.picam2.stop()
 
@@ -517,7 +570,7 @@ class HTTPStreamCapture (CaptureThread):
     """
     def __repr__(self):
         return "HTTPStreamCapture" 
-    
+
     def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict, bMotion:bool):
         super().__init__(parent, cfg, ctrls, bMotion)
         logging.debug("creating HttpStreamCapture")
@@ -531,7 +584,7 @@ class HTTPStreamCapture (CaptureThread):
                 hflip=self.cfg.camera.hflip,
                 vflip=self.cfg.camera.vflip))
         self.picam2.configure(vconfig)
-        
+
         output = StreamingOutput()
         #encoder = H264Encoder(self.cfg.video.bitrate)
         encoder = MJPEGEncoder()
@@ -545,11 +598,11 @@ class HTTPStreamCapture (CaptureThread):
         self.server.server_close()
         self.picam2.stop_recording()
         self.picam2.stop()
-    
+
     def trigger_stop(self):
         super().trigger_stop()
         self.server.shutdown()
-        
+
     def _shutdown_(self):
         self.picam2.close()
         super()._shutdown_()

@@ -11,6 +11,7 @@
         "video":false,
         "videolapse":false,
         "httpStream":false,
+        "rtspStream":false,
         "udpStream":false,
         "panAuto":false,
 
@@ -66,10 +67,15 @@
 	"audio":true,
 
     "streaming": {
-        "udp_addr": "localhost",
-        "udp_port": 10001,
-        "http_port": 8010,
-        "http_index":"www/index.html"
+		"udp_addr": "localhost",
+		"udp_port": 10001,
+		"http_port": 8010,
+		"http_index":"www/index.html",
+		"rtsp_user":"",
+		"rtsp_passwd":"",
+		"rtsp_port":"",
+		"rtsp_server":"",
+		"rtsp_stream":""
 	}
   },
 

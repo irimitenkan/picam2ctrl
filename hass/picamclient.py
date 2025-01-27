@@ -15,7 +15,7 @@ from utils import ThreadEvents
 from config import Config,CheckConfig
 from threading import Semaphore
 from picam2 import ImageCapture, VideoCapture,VideoCaptureElapse, HTTPStreamCapture
-from picam2 import getCameraInfo, UDPStreamCapture
+from picam2 import getCameraInfo, UDPStreamCapture, RtspCapture
 from pantilt.ULN2003.stepmotors import PanTiltStepMotors
 from pantilt.waveshare.servomotors import PanTiltServoMotors
 from pantilt.waveshare.lightsensor import LightSensor
@@ -98,6 +98,8 @@ class PiCam2Client (hass.MQTTClient):
             self._enableVideo(True)
         elif self.cfg.startup.httpStream:
             self._enableHttpStream()
+        elif self.cfg.startup.rtspStream:
+            self._enableRtspStream()
         elif self.cfg.startup.udpStream:
             self._enableUdpStream()
 
@@ -213,6 +215,20 @@ class PiCam2Client (hass.MQTTClient):
             self.activeThreads.addThread(self._child)
             self.TopicValues[TP.REC]=True
             self.publish_state(TP.REC)
+
+    def _enableRtspStream(self):
+        """
+        enable RTSP streaming task: this called by on_message or after startup
+        """
+        if not self._child:
+            logging.debug("enable RTSP Stream Task")
+            self._child = RtspCapture(self, self.cfg, self.actCtrls, self._motionEnabled,self.TopicValues[TP.VIDEOTI])
+            #self._hstream = True
+            self.publish_state(TP.RTSP)
+            self.activeThreads.addThread(self._child)
+            self.TopicValues[TP.REC]=True
+            self.publish_state(TP.REC)
+
 
     def _enableUdpStream(self):
         """
@@ -363,6 +379,10 @@ class PiCam2Client (hass.MQTTClient):
                         if payload == hass.HASS_STATE_ON:
                             self._enableHttpStream()
                         break
+                    elif TP.RTSP == tp:
+                        if payload == hass.HASS_STATE_ON:
+                            self._enableRtspStream()
+                        break
                     elif TP.UDP == tp:
                         if payload == hass.HASS_STATE_ON:
                             self._enableUdpStream()
@@ -383,6 +403,11 @@ class PiCam2Client (hass.MQTTClient):
                         break
                     elif TP.HTTP == tp and \
                             isinstance(self._child, HTTPStreamCapture):
+                        if payload == hass.HASS_STATE_OFF:
+                            self._child.trigger_stop()
+                        break
+                    elif TP.RTSP == tp and \
+                            isinstance(self._child, RtspCapture):
                         if payload == hass.HASS_STATE_OFF:
                             self._child.trigger_stop()
                         break
@@ -426,6 +451,13 @@ class PiCam2Client (hass.MQTTClient):
             self._hstream = False
             self.TopicValues[TP.HTTP] = hass.HASS_STATE_OFF
             self.publish_state(TP.HTTP)
+            self.TopicValues[TP.REC]=False
+            self.publish_state(TP.REC)
+            self._child = None
+        elif isinstance(child, RtspCapture):
+            #self._hstream = False
+            self.TopicValues[TP.RTSP] = hass.HASS_STATE_OFF
+            self.publish_state(TP.RTSP)
             self.TopicValues[TP.REC]=False
             self.publish_state(TP.REC)
             self._child = None

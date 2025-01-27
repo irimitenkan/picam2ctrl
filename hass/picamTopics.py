@@ -19,6 +19,7 @@ class TP:
     VIDEOTI = "VideoTimer"
     VIDSPEED = "VidLapseSpeed"
     HTTP = "HttpStream"
+    RTSP = "RtspStream"
     TIMELAPSE = "TimeLapse"
     UDP = "UdpStream"
     MOTION = "Motion"
@@ -44,6 +45,7 @@ class TP:
                     VIDSPEED: hass.HASS_COMPONENT_NUMBER,
                     TIMELAPSE: hass.HASS_COMPONENT_SWITCH,
                     HTTP: hass.HASS_COMPONENT_SWITCH,
+                    RTSP: hass.HASS_COMPONENT_SWITCH,
                     UDP: hass.HASS_COMPONENT_SWITCH,
                     MOTION_EN: hass.HASS_COMPONENT_SWITCH,
                     MOTION: hass.HASS_COMPONENT_BINARY_SENSOR,
@@ -74,6 +76,7 @@ class TP:
             TP.VIDEOTI : self.cfg.startup.VideoTimer,
             TP.VIDSPEED : self.cfg.startup.VideoLapseSpeed,
             TP.HTTP : hass.HASS_STATE_ON if self.cfg.startup.httpStream else hass.HASS_STATE_OFF,
+            TP.RTSP : hass.HASS_STATE_ON if self.cfg.startup.rtspStream else hass.HASS_STATE_OFF,
             TP.TIMELAPSE : hass.HASS_STATE_ON if self.cfg.startup.videolapse else hass.HASS_STATE_OFF,
             TP.UDP : hass.HASS_STATE_ON if self.cfg.startup.udpStream else hass.HASS_STATE_OFF,
             TP.MOTION : False,
@@ -159,6 +162,8 @@ class TP:
                         hass.HASS_CONFIG_CMD_TP: subTopics[TP.VIDSPEED]},
             TP.HTTP: {hass.HASS_CONFIG_DEVICE_CLASS : hass.HASS_CLASS_SWITCH,
                       hass.HASS_CONFIG_ICON:"mdi:video"},
+            TP.RTSP: {hass.HASS_CONFIG_DEVICE_CLASS : hass.HASS_CLASS_SWITCH,
+                      hass.HASS_CONFIG_ICON:"mdi:video"},
             TP.UDP: {hass.HASS_CONFIG_DEVICE_CLASS : hass.HASS_CLASS_SWITCH,
                      hass.HASS_CONFIG_ICON:"mdi:video"},
             TP.MOTION_EN: {hass.HASS_CONFIG_DEVICE_CLASS : hass.HASS_CLASS_SWITCH,
@@ -177,7 +182,7 @@ class TP:
             TP.VIDEOTI:{hass.HASS_CONFIG_ICON:"mdi:av-timer",
                         hass.HASS_CONFIG_DEVICE_CLASS : hass.HASS_CLASS_DURATION,
                         hass.HASS_CONFIG_UNIT : "s",
-                        hass.HASS_CONFIG_MIN : TIMER_MIN,
+                        hass.HASS_CONFIG_MIN : TIMER_MIN-1, #0 = infinite
                         hass.HASS_CONFIG_MAX : 7200,
                         hass.HASS_CONFIG_STEP : 1,
                         hass.HASS_CONFIG_MODE : "box",
@@ -198,7 +203,7 @@ class TP:
                               hass.HASS_CONFIG_OPTIONS : ["Auto","Tungsten","Fluorescent","Indoor","Daylight","Cloudy"],
                               hass.HASS_CONFIG_ICON:"mdi:white-balance-auto",
                               hass.HASS_CONFIG_CMD_TP: subTopics[TP.TUNE_AWBMODE]},
-             
+
             TP.TUNE_BRIGHT : {hass.HASS_CONFIG_ICON:"mdi:brightness-6",
                         hass.HASS_CONFIG_MIN : -1,
                         hass.HASS_CONFIG_MAX : 1,
