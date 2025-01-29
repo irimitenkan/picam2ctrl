@@ -10,10 +10,10 @@ to be used for picam2ctrl's RTSP feature
 ## mediaMTX
 [project's page](https://github.com/bluenviron/mediamtx#)
 
-**mediaMTX is highly recommended even if you want to stream with picam2ctrl to frigate server resp. go2rtsp **
-Actually you'll get an error "*av_interleaved_write_frame() broken pipe*" if you try to stream directly to go2rtsp resp. frigate (which also uses go2rtsp).
+**mediaMTX is highly recommended even if you want to stream with picam2ctrl to frigate server resp. go2rtc **
+Actually you'll get an error "*av_interleaved_write_frame() broken pipe*" if you try to stream directly to go2rtc resp. frigate (which also uses go2rtc).
 
-**WORKAROUND if you want to use frigate resp go2rtsp and picam2ctrl's RTSP **:
+**WORKAROUND if you want to use frigate resp go2rtc and picam2ctrl's RTSP **:
 
 * stream via mediamtx: picam2ctrl (localhost) -> mediamtx (localhost) -> frigate (HOSTX)
 * if frigate is running on same host you have to change the mediamtx default listen port 8554 to other port e.g. 8550 or 554.
@@ -25,11 +25,11 @@ Actually you'll get an error "*av_interleaved_write_frame() broken pipe*" if you
 * and start container:
 `sudo docker compose up -d`
 
-## go2rtsp
+## go2rtc
 [project's page](https://github.com/AlexxIT/go2rtc#)
 
 
-(Docker) installation, please aware of the restriction that actually you can't stream from picam2ctrl to go2rtsp directly,
+(Docker) installation, please aware of the restriction that actually you can't stream from picam2ctrl to go2rtc directly,
  see [mediamtx](##mediamtx) for details:
 * docker installation: enter mediamtx folder:
  * adapt for your needs `./config/go2rts.yaml`
