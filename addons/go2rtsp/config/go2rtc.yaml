@@ -1,0 +1,16 @@
+streams:
+    test:
+      - rtsp://[RPI'S ADDRESS with mediamtx runnung]:8554/picamera2
+
+api:
+  listen: :1984
+  # Add basic authentication
+  #login: admin
+  #password: your_password
+
+rtsp:
+  listen: :8554
+
+# WebRTC needs external access
+webrtc:
+  listen: :8555
