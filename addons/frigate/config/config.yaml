@@ -1,0 +1,15 @@
+mqtt:
+  enabled: False
+#detectors:
+#  coral:
+#    type: edgetpu
+#    device: pci
+cameras:
+  RaspiZero2W:
+    enabled: true
+    ffmpeg:
+      inputs:
+        - path: rtsp://[RPI'S ADDRESS with mediamtx runnung]:8554/picamera2
+          roles:
+          #  - detect
+            - record

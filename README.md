@@ -4,6 +4,7 @@
 [Features](#Features) |
 [Installation](#Installation) |
 [Running the MQTT client](#Running) |
+[RTSP](#RTSP) |
 [Configuration](#Configuration) |
 [Pan-Hardware](#PAN-Hardware) |
 [Home Assistant Integration](#HASS-Integration)
@@ -25,6 +26,7 @@ MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://ww
 * actual 10 different MQTT client entities
 * taking snapshot pictures
 * capturing MP4 videos incl. audio
+* RTSP video streaming of camera to RTSP server mediaMTX / go2rtsp / frigate
 * simple HTTP MJPEG streaming server
 * UDP video streaming
 * motion/occupancy detection by camera
@@ -88,6 +90,10 @@ Hence:
 
 For Picamera2 with GUI support , for non-headless Raspberry see [Picamera2 installation](https://github.com/raspberrypi/picamera2#installation )
 
+# RTSP
+
+A RTSP server is required, see [README](https://github.com/irimitenkan/picam2ctrl/blob/main/addons/README.md) for details in adddons folder
+
 # Configuration
 
 Example config.json
@@ -106,6 +112,7 @@ Example config.json
         "videolapse":false,
         "httpStream":false,
         "udpStream":false,
+        "rtspStream":false,
         "panAuto":false,
         "SnapTimer":10,
         "SnapCount":1,
@@ -179,6 +186,11 @@ Example config.json
         "udp_port": 10001,
         "http_port": 8010,
         "http_index":"www/index.html"
+        "rtsp_user":"",
+        "rtsp_passwd":"",
+        "rtsp_port":"8554",
+        "rtsp_server":"localhost",
+        "rtsp_stream":"picamera2"
       }
     },
 
@@ -255,6 +267,7 @@ only ONE of these camera applications can be enabled (value=true) when the clien
 * "videolapse":false,
 * "httpStream":false,
 * "udpStream":false,
+* "rtspStream":false,
 
 * "panAuto":false,
 
@@ -262,7 +275,7 @@ configure initial startup values of client:
 
 * "SnapTimer":10 : timeout for next snapshot
 * "SnapCount":1: count of snapshot
-* "VideoTimer": video record time length
+* "VideoTimer": video record time length - value 0 := infinite time
 * "VideoLapseSpeed":10 : video lapse speed factor
 * "PanAngle":0 : default Pan Angle (depends on HW)
 * "TiltAngle":0 :: default Tilt Angle (depends on HW)
@@ -457,6 +470,22 @@ by HASS discovery function via configured MQTT broker.
   * when [timestamp](##Configuration) is enabled each picture has a time stamp as configured in json configuration
   * when [audio](##Configuration) is enabled & available mp4 video file incl. audio stream is created
   * when [SSHClient](##Configuration) is enabled the latest taken video will be copied via secure shell to configured path @SSH server
+
+* picam2ctrl.\< HOSTNAME \>.VideoTimer
+
+  this is a number box field:
+
+  * setup the time Video record time in [s]. 0s := infinite, since to video/udp/rtsp switch in on
+
+
+* picam2ctrl.\< HOSTNAME \>.RtspStream:
+
+  This is a *switch* to enable/disable a RTSP video stream.
+
+  * when [Motion](##Motion) is disabled the rtsp stream starts immediately
+  * when [Motion](##Motion)  is enabled, the rtsp stream starts after motion detection
+  * when [timestamp](##Configuration) is enabled the rtsp stream has a time stamp as configured in json configuration
+  * duration depends on VideoTimer value in [s]. 0s := infinite, since to rtsp switch in on
 
 * picam2ctrl.\< HOSTNAME \>.HttpStream:
 

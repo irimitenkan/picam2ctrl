@@ -20,8 +20,8 @@ from optparse import OptionParser
 from hass.picamclient import startClient
 
 __all__ = []
-__version__ = "0.3.4"
-__updated__ = '2025-01-26'
+__version__ = "0.3.5"
+__updated__ = '2025-01-29'
 
 def main(argv=None):
     '''Command line options.'''
@@ -29,7 +29,7 @@ def main(argv=None):
     program_name = os.path.basename(sys.argv[0])
     program_version = f"v{__version__}"
     program_version_string = f"{program_name} {program_version} {__updated__}"
-    program_license = "Copyright 2023-24 irimi@gmx.de, published under BSD 2-Clause License"
+    program_license = "Copyright 2023-25 irimi@gmx.de, published under BSD 2-Clause License"
 
     if argv is None:
         argv = sys.argv[1:]
