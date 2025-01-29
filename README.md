@@ -92,7 +92,7 @@ For Picamera2 with GUI support , for non-headless Raspberry see [Picamera2 insta
 
 # RTSP
 
-A RTSP server is required, see [README](https://github.com/irimitenkan/picam2ctrl/addons#README) for details in adddons folder
+A RTSP server is required, see [README](https://github.com/irimitenkan/picam2ctrl/blob/main/addons/README.md) for details in adddons folder
 
 # Configuration
 
