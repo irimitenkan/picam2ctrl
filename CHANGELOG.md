@@ -1,9 +1,13 @@
 # Change Log
 
+## v0.3.5
+
+* RTSP support added
+
 ## v0.3.3 - v0.3.4
 
-* #14 topics and  entids optimized
-* merge #12
+* #14: topics and entities optimized
+* merge #12: HTML WEBServer Page
 * tune ctrl fixes
 
 ## v0.3.2

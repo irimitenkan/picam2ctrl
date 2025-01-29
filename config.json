@@ -73,9 +73,9 @@
 		"http_index":"www/index.html",
 		"rtsp_user":"",
 		"rtsp_passwd":"",
-		"rtsp_port":"",
-		"rtsp_server":"",
-		"rtsp_stream":""
+		"rtsp_port":"8554",
+		"rtsp_server":"localhost",
+		"rtsp_stream":"picamera2"
 	}
   },
 

@@ -470,7 +470,10 @@ class RtspCapture (CaptureThread):
         self._setCtrls_()
         self.picam2.start_recording(
             encoder, output, quality)  # VERY_HIGH,VERY_LOW,MEDIUM
-        logging.debug("In case of error 'default: No such process' check your audio settings")
+        logging.debug("-> in case of error 'default: No such process' check your audio settings")
+        logging.debug("-> in case of error 'av_interleaved_write_frame() broken pipe")
+        logging.debug("   with go2rtsp / frigate please read README.md in repro ADDONS folder")
+
         if 0==self.vidTime:
             while not self._stopEvent.is_set():
                 time.sleep(INIT_TIMEOUT)
