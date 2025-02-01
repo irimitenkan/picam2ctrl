@@ -26,7 +26,7 @@ MQTT client to control your Raspberry Pi Camera with [Home Assistant](https://ww
 * actual 10 different MQTT client entities
 * taking snapshot pictures
 * capturing MP4 videos incl. audio
-* RTSP video streaming of camera to RTSP server mediaMTX / go2rtsp / frigate
+* RTSP video streaming of camera to RTSP server mediaMTX / go2rtc / frigate
 * simple HTTP MJPEG streaming server
 * UDP video streaming
 * motion/occupancy detection by camera
@@ -44,7 +44,7 @@ On headless Raspberry Pi OS lite you have to update from *libcamera-apps-lite* t
 No gui but OpenCV python bindings and paho-mqtt package are required:
 
   ```
-  sudo apt-get install -y --no-install-recommends libcamera-apps python3-picamera2 python3-opencv python3-paho-mqtt python3-smbus ffmpeg git
+  sudo apt-get install -y --no-install-recommends libcamera-apps python3-picamera2 python3-opencv python3-paho-mqtt python3-smbus ffmpeg pulseaudio git
   ```
 
 finally clone the picam2ctrl repository:
@@ -92,7 +92,7 @@ For Picamera2 with GUI support , for non-headless Raspberry see [Picamera2 insta
 
 # RTSP
 
-A RTSP server is required, see [README](https://github.com/irimitenkan/picam2ctrl/blob/main/addons/README.md) for details in adddons folder
+A RTSP server is required, see [README](https://github.com/irimitenkan/picam2ctrl/blob/main/addons/README.md) for details in addons folder
 
 # Configuration
 
