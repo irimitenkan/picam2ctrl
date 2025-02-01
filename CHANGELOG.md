@@ -1,5 +1,10 @@
 # Change Log
 
+## v0.3.6
+
+* mapCtrl fix, typos removed
+
+
 ## v0.3.5
 
 * RTSP support added

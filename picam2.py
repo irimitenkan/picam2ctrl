@@ -105,20 +105,6 @@ class CaptureThread(ThreadEvent):
     
     """
 
-    ctrlMapAwbMode={
-        "Auto":libcamera.controls.AwbModeEnum.Auto,
-        "Tungsten":libcamera.controls.AwbModeEnum.Tungsten,
-        "Fluorescent":libcamera.controls.AwbModeEnum.Fluorescent,
-        "Indoor":libcamera.controls.AwbModeEnum.Indoor,
-        "Daylight":libcamera.controls.AwbModeEnum.Daylight,
-        "Cloudy":libcamera.controls.AwbModeEnum.Cloudy
-        }
-
-    ctrlMapAwbEnable={
-        "off":False,
-        "on":True
-        }
-
     #libcamera.controls.AwbEnable
     def __init__(self, parent: ThreadEvent, cfg: Config, ctrls:dict = None, bMotion:bool=False):
         super().__init__(parent)
@@ -154,16 +140,32 @@ class CaptureThread(ThreadEvent):
             logging.error(f"{str(e)}, configured store path not accessable")
 
     def mapCtrls(self):
+        ctrlMapAwbMode={
+            "Auto":libcamera.controls.AwbModeEnum.Auto,
+            "Tungsten":libcamera.controls.AwbModeEnum.Tungsten,
+            "Fluorescent":libcamera.controls.AwbModeEnum.Fluorescent,
+            "Indoor":libcamera.controls.AwbModeEnum.Indoor,
+            "Daylight":libcamera.controls.AwbModeEnum.Daylight,
+            "Cloudy":libcamera.controls.AwbModeEnum.Cloudy
+            }
+
+        ctrlMapAwbEnable={
+            "off":False,
+            "on":True
+            }
+        logging.debug(f"picam2.set_controls={self.actCtrls}")
+
         if len (self.actCtrls) > 0:
-            self.actCtrls["AwbMode"]=self.ctrlMapAwbMode[self.actCtrls["AwbMode"]]
-            if self.actCtrls['AwbEnable'] in self.ctrlMapAwbEnable:
-                self.actCtrls["AwbEnable"]=self.ctrlMapAwbEnable[self.actCtrls["AwbEnable"]]
+            if self.actCtrls["AwbMode"] in ctrlMapAwbMode:
+                self.actCtrls["AwbMode"]=ctrlMapAwbMode[self.actCtrls["AwbMode"]]
+            if self.actCtrls['AwbEnable'] in ctrlMapAwbEnable:
+                self.actCtrls["AwbEnable"]=ctrlMapAwbEnable[self.actCtrls["AwbEnable"]]
         else:
             self.actCtrls=self.defaultCtrls
 
     def _setCtrls_(self):
         if len(self.actCtrls)>0:
-            logging.debug(f"picam2.set_controls={self.actCtrls}")
+            self.mapCtrls()
             self.picam2.set_controls(self.actCtrls)
             time.sleep(2) #must have
         else:
@@ -171,7 +173,6 @@ class CaptureThread(ThreadEvent):
 
     def updateCtrls(self,ctrls,update=True):
         self.actCtrls=ctrls.copy()
-        self.mapCtrls()
         if update:
             self._setCtrls_()
 
@@ -288,7 +289,6 @@ class CaptureThread(ThreadEvent):
     """
     def _single_capture_(self):
         logging.error("_single_capture_ not implemented in derived class")
-
 
 class ImageCapture (CaptureThread):
     """
@@ -412,8 +412,6 @@ class VideoCapture (CaptureThread):
         logging.debug(f"video file={file}")
         logging.debug(f"video file_latest={file_l}")
 
-        # ffmpeg -re -i input.mkv -c:v libx264 -maxrate 1000k -bufsize 2000k
-        # -an -bsf:v h264_mp4toannexb -g 50 http://localhost:8090/feed1.ffm
         output = FfmpegOutput(str(file), audio=self.cfg.video.audio)
         self._setCtrls_()
         self.picam2.start_recording(
@@ -470,9 +468,9 @@ class RtspCapture (CaptureThread):
         self._setCtrls_()
         self.picam2.start_recording(
             encoder, output, quality)  # VERY_HIGH,VERY_LOW,MEDIUM
-        logging.debug("-> in case of error 'default: No such process' check your audio settings")
+        logging.debug("-> in case of error 'default: No such process' check your audio settings resp pulseaudio is installed")
         logging.debug("-> in case of error 'av_interleaved_write_frame() broken pipe")
-        logging.debug("   with go2rtsp / frigate please read README.md in repro ADDONS folder")
+        logging.debug("   with go2rtc / frigate please read README.md in repro ADDONS folder")
 
         if 0==self.vidTime:
             while not self._stopEvent.is_set():
@@ -589,9 +587,7 @@ class HTTPStreamCapture (CaptureThread):
         self.picam2.configure(vconfig)
 
         output = StreamingOutput()
-        #encoder = H264Encoder(self.cfg.video.bitrate)
         encoder = MJPEGEncoder()
-        #self.picam2.start_recording(JpegEncoder(70), FileOutput(output))
         self._setCtrls_()
         self.picam2.start_recording(encoder, FileOutput(output))
         address = ('', self.cfg.video.streaming.http_port)

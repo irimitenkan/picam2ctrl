@@ -20,8 +20,8 @@ from optparse import OptionParser
 from hass.picamclient import startClient
 
 __all__ = []
-__version__ = "0.3.5"
-__updated__ = '2025-01-29'
+__version__ = "0.3.6"
+__updated__ = '2025-02-01'
 
 def main(argv=None):
     '''Command line options.'''
