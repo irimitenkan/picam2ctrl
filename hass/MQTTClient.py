@@ -88,7 +88,10 @@ class MQTTClient (mqtt.Client):
     """ MQTT client class with HASS discovery support """
 
     def __init__(self, cfg, ClientID,HostTpID):
-        super().__init__(ClientID)
+        if hasattr(mqtt, "CallbackAPIVersion"):
+            super().__init__(mqtt.CallbackAPIVersion.VERSION1,ClientID)
+        else:
+            super().__init__(ClientID)
 
         self.cfg = cfg
         self._disconnectRQ = False

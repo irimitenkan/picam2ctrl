@@ -1,4 +1,8 @@
 # Change Log
+## v0.3.7
+
+* paho mqtt lib v2 support
+
 
 ## v0.3.6
 
